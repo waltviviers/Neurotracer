@@ -27,9 +27,215 @@ class NeuroTraceApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: const LogoScene(),
+      home: const CinematicScene(),
     );
   }
+}
+
+/// =============================
+/// CINEMATIC INTRO SCENE
+/// =============================
+
+class CinematicScene extends StatefulWidget {
+  const CinematicScene({super.key});
+  @override
+  State<CinematicScene> createState() => _CinematicSceneState();
+}
+
+class _CinematicSceneState extends State<CinematicScene>
+    with TickerProviderStateMixin {
+  static const _lines = [
+    (text: 'NEURAL LINK INITIALIZING...', color: _kCyan,   pause: 900),
+    (text: 'CONNECTION ESTABLISHED',      color: _kGreen,  pause: 700),
+    (text: 'MEMORY BANKS: ONLINE',        color: _kCyan,   pause: 700),
+    (text: '> SCANNING NETWORK...',       color: _kDim,    pause: 1100),
+    (text: 'WARNING:',                    color: _kRed,    pause: 300),
+    (text: '847 MINDS TRAPPED IN',        color: _kRed,    pause: 300),
+    (text: 'THE GRID',                    color: _kRed,    pause: 1000),
+    (text: 'YOUR MISSION:',               color: _kAmber,  pause: 400),
+    (text: 'SET THEM FREE',               color: Colors.white, pause: 1200),
+    (text: '> NEUROTRACE v1.0',           color: _kCyan,   pause: 500),
+    (text: '  LOADING...',                color: _kCyan,   pause: 800),
+  ];
+
+  static const _kCyan  = Colors.cyan;
+  static const _kGreen = Color(0xFF39FF14);
+  static const _kRed   = Colors.redAccent;
+  static const _kAmber = Colors.amber;
+  static const _kDim   = Color(0xFF607D8B);
+
+  // chars revealed so far per line
+  final List<int> _revealed = [];
+  int _currentLine = 0;
+  bool _skipped = false;
+  Timer? _charTimer;
+  Timer? _lineTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _revealLine(0);
+  }
+
+  void _revealLine(int lineIndex) {
+    if (!mounted || lineIndex >= _lines.length) {
+      _finish();
+      return;
+    }
+    setState(() {
+      _currentLine = lineIndex;
+      if (_revealed.length <= lineIndex) _revealed.add(0);
+    });
+
+    final text = _lines[lineIndex].text;
+    _charTimer = Timer.periodic(const Duration(milliseconds: 38), (t) {
+      if (!mounted) { t.cancel(); return; }
+      setState(() => _revealed[lineIndex]++);
+      if (_revealed[lineIndex] >= text.length) {
+        t.cancel();
+        _lineTimer = Timer(
+          Duration(milliseconds: _lines[lineIndex].pause),
+          () => _revealLine(lineIndex + 1),
+        );
+      }
+    });
+  }
+
+  void _finish() {
+    if (_skipped) return;
+    _skipped = true;
+    _charTimer?.cancel();
+    _lineTimer?.cancel();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: kSceneFade,
+        pageBuilder: (_, __, ___) => const LogoScene(),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _charTimer?.cancel();
+    _lineTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _finish,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Subtle circuit background
+            Image.asset('assets/bg_circuit.png',
+                fit: BoxFit.cover,
+                color: Colors.black.withValues(alpha: 0.82),
+                colorBlendMode: BlendMode.darken),
+            // Scanline overlay
+            CustomPaint(painter: _ScanlinePainter()),
+            // Text content
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 80),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (int i = 0; i < _revealed.length; i++)
+                    _buildLine(i),
+                  // Blinking cursor on active line
+                  if (_currentLine < _lines.length)
+                    _BlinkingCursor(color: _lines[_currentLine].color),
+                ],
+              ),
+            ),
+            // Skip hint
+            Positioned(
+              bottom: 36,
+              right: 28,
+              child: Text('TAP TO SKIP',
+                  style: _pixel(7, color: Colors.white.withValues(alpha: 0.3))),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLine(int i) {
+    final line = _lines[i];
+    final chars = _revealed[i].clamp(0, line.text.length);
+    final isBlank = line.text.trim().isEmpty;
+    if (isBlank) return const SizedBox(height: 14);
+
+    final isDone = chars >= line.text.length;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        line.text.substring(0, chars),
+        style: _pixel(
+          line.text.startsWith('>') ? 9 : 10,
+          color: isDone
+              ? line.color
+              : line.color.withValues(alpha: 0.85),
+        ),
+      ),
+    );
+  }
+}
+
+class _BlinkingCursor extends StatefulWidget {
+  final Color color;
+  const _BlinkingCursor({required this.color});
+  @override
+  State<_BlinkingCursor> createState() => _BlinkingCursorState();
+}
+
+class _BlinkingCursorState extends State<_BlinkingCursor>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+        opacity: _ctrl,
+        child: Text('█', style: _pixel(12, color: widget.color)),
+      );
+}
+
+class _ScanlinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.18)
+      ..strokeWidth = 1;
+    for (double y = 0; y < size.height; y += 4) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ScanlinePainter old) => false;
 }
 
 /// =============================
