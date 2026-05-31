@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -526,7 +525,7 @@ class _GameSceneState extends State<GameScene> {
 /// =============================
 
 TextStyle _pixel(double size, {Color? color, FontWeight weight = FontWeight.normal}) =>
-    GoogleFonts.pressStart2p(fontSize: size, color: color, fontWeight: weight);
+    TextStyle(fontFamily: 'PressStart2P', fontSize: size, color: color, fontWeight: weight);
 
 const _kGlyphs = [
   'Ω', 'Σ', 'Φ', 'Δ', 'Λ', 'Ψ', 'Θ', 'Π',

@@ -13,7 +13,6 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.3.0
-  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -28,3 +27,8 @@ flutter:
     - assets/logo.png
     - assets/bg_texture.png
     - assets/bg_circuit.png
+
+  fonts:
+    - family: PressStart2P
+      fonts:
+        - asset: assets/fonts/PressStart2P.ttf
