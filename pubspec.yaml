@@ -13,6 +13,7 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.3.0
+  video_player: ^2.9.2
 
 dev_dependencies:
   flutter_test:
@@ -27,6 +28,7 @@ flutter:
     - assets/logo.png
     - assets/bg_texture.png
     - assets/bg_circuit.png
+    - assets/videos/
 
   fonts:
     - family: PressStart2P

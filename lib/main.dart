@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:video_player/video_player.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,7 +28,113 @@ class NeuroTraceApp extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: const CinematicScene(),
+      home: const VideoIntroScene(),
+    );
+  }
+}
+
+/// =============================
+/// VIDEO INTRO SCENE
+/// =============================
+
+class VideoIntroScene extends StatefulWidget {
+  const VideoIntroScene({super.key});
+  @override
+  State<VideoIntroScene> createState() => _VideoIntroSceneState();
+}
+
+class _VideoIntroSceneState extends State<VideoIntroScene> {
+  VideoPlayerController? _controller;
+  bool _navigated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initVideo();
+  }
+
+  Future<void> _initVideo() async {
+    try {
+      final ctrl = VideoPlayerController.asset('assets/videos/intro.mp4');
+      await ctrl.initialize();
+      if (!mounted) {
+        ctrl.dispose();
+        return;
+      }
+      setState(() => _controller = ctrl);
+      ctrl.addListener(_onVideoUpdate);
+      await ctrl.play();
+    } catch (_) {
+      _navigate();
+    }
+  }
+
+  void _onVideoUpdate() {
+    final ctrl = _controller;
+    if (ctrl == null || _navigated) return;
+    final val = ctrl.value;
+    if (val.duration > Duration.zero && val.position >= val.duration) {
+      _navigate();
+    }
+  }
+
+  void _navigate() {
+    if (_navigated) return;
+    _navigated = true;
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 500),
+        pageBuilder: (_, __, ___) => const CinematicScene(),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onVideoUpdate);
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = _controller;
+    final ready = ctrl != null && ctrl.value.isInitialized;
+    return GestureDetector(
+      onTap: _navigate,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: ready
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.cover,
+                    child: SizedBox(
+                      width: ctrl.value.size.width,
+                      height: ctrl.value.size.height,
+                      child: VideoPlayer(ctrl),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 36,
+                    right: 28,
+                    child: Text(
+                      'TAP TO SKIP',
+                      style: TextStyle(
+                        fontFamily: 'PressStart2P',
+                        fontSize: 7,
+                        color: Colors.white.withValues(alpha: 0.3),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : const SizedBox.shrink(),
+      ),
     );
   }
 }
