@@ -153,14 +153,14 @@ class _CinematicSceneState extends State<CinematicScene>
     with TickerProviderStateMixin {
   static const _lines = [
     (text: 'NEURAL LINK INITIALIZING...', color: _kCyan,   pause: 900),
-    (text: 'CONNECTION ESTABLISHED',      color: _kGreen,  pause: 700),
+    (text: 'CONNECTION ESTABLISHED',      color: _kCyan,   pause: 700),
     (text: 'MEMORY BANKS: ONLINE',        color: _kCyan,   pause: 700),
-    (text: '> SCANNING NETWORK...',       color: _kDim,    pause: 1100),
-    (text: 'WARNING:',                    color: _kRed,    pause: 300),
-    (text: '847 MINDS TRAPPED IN',        color: _kRed,    pause: 300),
-    (text: 'THE GRID',                    color: _kRed,    pause: 1000),
+    (text: '> SCANNING NETWORK...',       color: _kCyan,   pause: 1100),
+    (text: 'WARNING:',                    color: _kAmber,  pause: 300),
+    (text: '847 MINDS TRAPPED IN',        color: _kAmber,  pause: 300),
+    (text: 'THE GRID',                    color: _kAmber,  pause: 1000),
     (text: 'YOUR MISSION:',               color: _kAmber,  pause: 400),
-    (text: 'SET THEM FREE',               color: Colors.white, pause: 1200),
+    (text: 'SET THEM FREE',               color: _kAmber,  pause: 1200),
     (text: '> NEUROTRACE v1.0',           color: _kCyan,   pause: 500),
     (text: '  LOADING...',                color: _kCyan,   pause: 800),
   ];
