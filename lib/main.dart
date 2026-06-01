@@ -166,10 +166,7 @@ class _CinematicSceneState extends State<CinematicScene>
   ];
 
   static const _kCyan  = Colors.cyan;
-  static const _kGreen = Color(0xFF39FF14);
-  static const _kRed   = Colors.redAccent;
   static const _kAmber = Colors.amber;
-  static const _kDim   = Color(0xFF607D8B);
 
   // chars revealed so far per line
   final List<int> _revealed = [];
@@ -736,6 +733,18 @@ class _GameSceneState extends State<GameScene> {
     });
   }
 
+  void _continueGame() {
+    setState(() {
+      _state.lives = kStartLives;
+      _state.replayTokens = 1;
+      _state.inputProgress = 0;
+      _phase = Phase.idle;
+    });
+    _revealSequence().then((_) {
+      if (mounted) setState(() => _phase = Phase.input);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -807,6 +816,7 @@ class _GameSceneState extends State<GameScene> {
             _BottomBar(
               onRestart: _restartGame,
               onReplaySequence: _replaySequence,
+              onContinue: _continueGame,
               phase: _phase,
               replayTokens: _state.replayTokens,
             ),
@@ -1081,12 +1091,14 @@ class _TileButtonState extends State<_TileButton>
 class _BottomBar extends StatelessWidget {
   final VoidCallback onRestart;
   final VoidCallback onReplaySequence;
+  final VoidCallback onContinue;
   final Phase phase;
   final int replayTokens;
 
   const _BottomBar({
     required this.onRestart,
     required this.onReplaySequence,
+    required this.onContinue,
     required this.phase,
     required this.replayTokens,
   });
@@ -1094,37 +1106,72 @@ class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isOver = phase == Phase.gameOver;
-    final canReplay = replayTokens > 0;
-    final label = isOver
-        ? 'Restart'
-        : canReplay
-            ? 'Replay  [$replayTokens]'
-            : 'No Replays Left';
+    final canContinue = isOver && replayTokens >= 13;
+    final canReplay = !isOver && replayTokens > 0;
+
+    if (isOver) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (canContinue) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.bolt),
+                  onPressed: () {
+                    HapticFeedback.heavyImpact();
+                    onContinue();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber.withValues(alpha: 0.15),
+                    side: const BorderSide(color: Colors.amber),
+                  ),
+                  label: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text('CONTINUE  [-13 TOKENS]', style: _pixel(8, color: Colors.amber)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.refresh),
+                onPressed: onRestart,
+                label: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text('RESTART', style: _pixel(9)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              icon: Icon(isOver ? Icons.refresh : Icons.play_arrow),
-              onPressed: (isOver || canReplay)
-                  ? () {
-                      if (isOver) {
-                        onRestart();
-                      } else {
-                        HapticFeedback.selectionClick();
-                        onReplaySequence();
-                      }
-                    }
-                  : null,
-              label: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(label, style: _pixel(9)),
-              ),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.play_arrow),
+          onPressed: canReplay
+              ? () {
+                  HapticFeedback.selectionClick();
+                  onReplaySequence();
+                }
+              : null,
+          label: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              canReplay ? 'REPLAY  [$replayTokens]' : 'NO REPLAYS LEFT',
+              style: _pixel(9),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
