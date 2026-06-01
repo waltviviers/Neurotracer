@@ -691,7 +691,7 @@ class _GameSceneState extends State<GameScene> {
     setState(() {
       _phase = Phase.roundEnd;
       _state.roundsCleared += 1;
-      _state.score += 37037;
+      _state.score += _state.roundsCleared == 27 ? 37038 : 37037;
       _state.replayTokens += 1;
     });
     _updateHighScore();
