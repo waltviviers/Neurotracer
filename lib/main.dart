@@ -157,7 +157,7 @@ class _CinematicSceneState extends State<CinematicScene>
     (text: 'MEMORY BANKS: ONLINE',        color: _kCyan,   pause: 700),
     (text: '> SCANNING NETWORK...',       color: _kCyan,   pause: 1100),
     (text: 'WARNING:',                    color: _kAmber,  pause: 300),
-    (text: '847 MINDS TRAPPED IN',        color: _kAmber,  pause: 300),
+    (text: '1,000,000 MINDS TRAPPED IN',   color: _kAmber,  pause: 300),
     (text: 'THE GRID',                    color: _kAmber,  pause: 1000),
     (text: 'YOUR MISSION:',               color: _kAmber,  pause: 400),
     (text: 'SET THEM FREE',               color: _kAmber,  pause: 1200),
@@ -691,7 +691,7 @@ class _GameSceneState extends State<GameScene> {
     setState(() {
       _phase = Phase.roundEnd;
       _state.roundsCleared += 1;
-      _state.score += 1;
+      _state.score += 37037;
       _state.replayTokens += 1;
     });
     _updateHighScore();
