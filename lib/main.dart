@@ -354,7 +354,8 @@ const Duration kFlashOff = Duration(milliseconds: 180);
 const Duration kInterStepPause = Duration(milliseconds: 220);
 const Duration kBetweenRoundsPause = Duration(milliseconds: 600);
 const Duration kSceneFade = Duration(milliseconds: 500);
-const double kTrapChance = 0.35;
+const double kTrapChance  = 0.35;
+const double kBonusChance = 0.30;
 
 /// =============================
 /// LOGO SCENE (Glitch → Fade Into Game)
@@ -519,6 +520,7 @@ class _GameState {
 
   final List<int> sequence = [];
   int? trapStepIndex;
+  int? bonusTileIndex;
   int inputProgress = 0;
 
   bool gaveSecondRowLife = false;
@@ -526,6 +528,7 @@ class _GameState {
   void resetForNewRound() {
     sequence.clear();
     trapStepIndex = null;
+    bonusTileIndex = null;
     inputProgress = 0;
     // replayTokens intentionally not reset — they accumulate across rounds
   }
@@ -584,6 +587,10 @@ class _GameSceneState extends State<GameScene> {
       _state.trapStepIndex = _rng.nextInt(_state.sequence.length);
     }
 
+    if (_rng.nextDouble() < kBonusChance) {
+      _state.bonusTileIndex = _rng.nextInt(totalTiles);
+    }
+
     await Future.delayed(const Duration(milliseconds: 350));
     await _revealSequence();
     if (!mounted) return;
@@ -622,6 +629,15 @@ class _GameSceneState extends State<GameScene> {
     if (trapIndex != null && index == trapIndex) {
       _loseLife(because: 'Trap tile tapped');
       return;
+    }
+
+    // Bonus tile: tapping gives +1 life (also counts as sequence progress below)
+    if (_state.bonusTileIndex != null && index == _state.bonusTileIndex) {
+      setState(() {
+        _state.lives += 1;
+        _state.bonusTileIndex = null;
+      });
+      HapticFeedback.lightImpact();
     }
 
     int progressed = 0;
@@ -690,6 +706,11 @@ class _GameSceneState extends State<GameScene> {
       _state.roundsCleared += 1;
       _state.score += _state.roundsCleared == 27 ? 37038 : 37037;
       _state.replayTokens += 1;
+      // Bonus tile not tapped — reward a replay token instead
+      if (_state.bonusTileIndex != null) {
+        _state.replayTokens += 1;
+        _state.bonusTileIndex = null;
+      }
     });
     _updateHighScore();
 
@@ -803,6 +824,7 @@ class _GameSceneState extends State<GameScene> {
                             disabled: _phase != Phase.input,
                             flashing: isFlashing,
                             trapFlash: isTrapFlashNow,
+                            bonusTile: _state.bonusTileIndex == index,
                             onPressed: () => _onTilePressed(index),
                           );
                         },
@@ -973,6 +995,7 @@ class _TileButton extends StatefulWidget {
   final bool disabled;
   final bool flashing;
   final bool trapFlash;
+  final bool bonusTile;
   final VoidCallback onPressed;
 
   const _TileButton({
@@ -981,6 +1004,7 @@ class _TileButton extends StatefulWidget {
     required this.disabled,
     required this.flashing,
     required this.trapFlash,
+    required this.bonusTile,
     required this.onPressed,
   });
 
@@ -1020,9 +1044,11 @@ class _TileButtonState extends State<_TileButton>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final glyph = widget.trapFlash
-        ? '☠'   // ☠ skull
-        : _kGlyphs[widget.index % _kGlyphs.length];
+    final glyph = widget.bonusTile
+        ? '♥'
+        : widget.trapFlash
+            ? '☠'
+            : _kGlyphs[widget.index % _kGlyphs.length];
 
     return SizedBox(
       width: widget.size,
@@ -1035,30 +1061,44 @@ class _TileButtonState extends State<_TileButton>
           child: AnimatedBuilder(
             animation: _redFade,
             builder: (context, _) {
-              // Red flashes in instantly, then fades to primary blue over 240ms
               final t = _redFade.value;
-              final flashColor = widget.flashing
-                  ? Color.lerp(Colors.redAccent, cs.primary, t)!
-                  : const Color(0xFF121416);
-              final borderColor = widget.flashing
-                  ? Color.lerp(Colors.redAccent, cs.primary, t)!
-                      .withValues(alpha: 0.85)
-                  : cs.primary.withValues(alpha: 0.25);
-              final glowColor = widget.flashing
-                  ? Color.lerp(Colors.redAccent, cs.primary, t)!
-                      .withValues(alpha: 0.6)
-                  : Colors.transparent;
+
+              Color bgColor;
+              Color borderColor;
+              Color glowColor;
+              Color glyphColor;
+
+              if (widget.bonusTile && !widget.flashing) {
+                bgColor    = const Color(0xFF061A08);
+                borderColor = Colors.greenAccent.withValues(alpha: 0.7);
+                glowColor  = Colors.greenAccent.withValues(alpha: 0.25);
+                glyphColor = Colors.greenAccent;
+              } else if (widget.flashing) {
+                // Normal tiles: cyan. Trap tiles: orange → primary.
+                final activeColor = widget.trapFlash
+                    ? Color.lerp(Colors.orange, cs.primary, t)!
+                    : Colors.cyan;
+                bgColor    = activeColor;
+                borderColor = activeColor.withValues(alpha: 0.85);
+                glowColor  = activeColor.withValues(alpha: 0.6);
+                glyphColor = Colors.white;
+              } else {
+                bgColor    = const Color(0xFF121416);
+                borderColor = cs.primary.withValues(alpha: 0.25);
+                glowColor  = Colors.transparent;
+                glyphColor = Colors.cyan.withValues(alpha: 0.5);
+              }
 
               return Container(
                 decoration: BoxDecoration(
-                  color: flashColor,
+                  color: bgColor,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: borderColor,
-                    width: widget.flashing ? 2 : 1,
+                    width: (widget.flashing || widget.bonusTile) ? 2 : 1,
                   ),
                   boxShadow: [
-                    if (widget.flashing)
+                    if (widget.flashing || widget.bonusTile)
                       BoxShadow(
                         color: glowColor,
                         blurRadius: 14,
@@ -1072,9 +1112,7 @@ class _TileButtonState extends State<_TileButton>
                     style: TextStyle(
                       fontSize: widget.size * 0.34,
                       fontWeight: FontWeight.bold,
-                      color: widget.flashing
-                          ? Colors.white
-                          : Colors.cyan.withValues(alpha: 0.5),
+                      color: glyphColor,
                     ),
                     child: Text(glyph),
                   ),
