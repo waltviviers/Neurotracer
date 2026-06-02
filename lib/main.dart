@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -266,6 +267,10 @@ class _CinematicSceneState extends State<CinematicScene>
               child: Text('TAP TO SKIP',
                   style: _pixel(7, color: Colors.white.withValues(alpha: 0.3))),
             ),
+            const Positioned(
+              bottom: 0, left: 0, right: 0,
+              child: Center(child: _CreatorTag()),
+            ),
           ],
         ),
       ),
@@ -431,6 +436,10 @@ class _LogoSceneState extends State<LogoScene>
               fit: BoxFit.cover,
               color: Colors.black.withValues(alpha: 0.55),
               colorBlendMode: BlendMode.darken),
+          const Positioned(
+            bottom: 0, left: 0, right: 0,
+            child: Center(child: _CreatorTag()),
+          ),
           Center(
             child: AnimatedBuilder(
           animation: _glitchCtrl,
@@ -856,7 +865,8 @@ class _GameSceneState extends State<GameScene> {
               phase: _phase,
               replayTokens: _state.replayTokens,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
+            const _CreatorTag(),
             ],
           ),
           ),
@@ -1299,10 +1309,16 @@ class _BottomBar extends StatelessWidget {
                 onPressed: onRestart,
                 label: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text('RESTART', style: _pixel(9)),
+                  child: Text(phase == Phase.win ? 'PLAY AGAIN' : 'RESTART',
+                      style: _pixel(9)),
                 ),
               ),
             ),
+            if (phase == Phase.win) ...[
+              const SizedBox(height: 10),
+              Text('MORE CONTENT COMING SOON',
+                  style: _pixel(7, color: Colors.amber)),
+            ],
           ],
         ),
       );
@@ -1327,6 +1343,27 @@ class _BottomBar extends StatelessWidget {
               style: _pixel(9),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CreatorTag extends StatelessWidget {
+  const _CreatorTag();
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => launchUrl(
+        Uri.parse('https://www.instagram.com/waltviviers'),
+        mode: LaunchMode.externalApplication,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(
+          'created by @waltviviers',
+          style: _pixel(6, color: Colors.white.withValues(alpha: 0.30)),
         ),
       ),
     );
