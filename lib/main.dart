@@ -541,6 +541,7 @@ class _GameSceneState extends State<GameScene> {
 
   int? _flashingIndex;
   bool _isTrapFlash = false;
+  bool _showLoseVideo = false;
 
   int _highScore = 0;
   SharedPreferences? _prefs;
@@ -678,7 +679,10 @@ class _GameSceneState extends State<GameScene> {
     await _shakeScreen();
 
     if (_state.lives <= 0) {
-      setState(() => _phase = Phase.gameOver);
+      setState(() {
+        _phase = Phase.gameOver;
+        if (_state.replayTokens < 13) _showLoseVideo = true;
+      });
       _updateHighScore();
       return;
     }
@@ -846,6 +850,10 @@ class _GameSceneState extends State<GameScene> {
             ],
           ),
           ),
+          if (_showLoseVideo)
+            _LoseVideoOverlay(
+              onDone: () => setState(() => _showLoseVideo = false),
+            ),
         ],
       ),
     );
@@ -862,6 +870,95 @@ class _GameSceneState extends State<GameScene> {
     final maxTileW = (gridW - gapsW) / cols;
     final maxTileH = (gridH - gapsH) / rows;
     return min(maxTileW, maxTileH).clamp(32.0, 120.0);
+  }
+}
+
+/// =============================
+/// LOSE VIDEO OVERLAY
+/// =============================
+
+class _LoseVideoOverlay extends StatefulWidget {
+  final VoidCallback onDone;
+  const _LoseVideoOverlay({required this.onDone});
+  @override
+  State<_LoseVideoOverlay> createState() => _LoseVideoOverlayState();
+}
+
+class _LoseVideoOverlayState extends State<_LoseVideoOverlay> {
+  VideoPlayerController? _ctrl;
+  bool _done = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initVideo();
+  }
+
+  Future<void> _initVideo() async {
+    try {
+      final ctrl = VideoPlayerController.asset('assets/lose.mp4');
+      await ctrl.initialize();
+      if (!mounted) { ctrl.dispose(); return; }
+      setState(() => _ctrl = ctrl);
+      ctrl.addListener(_onUpdate);
+      await ctrl.play();
+    } catch (_) {
+      _finish();
+    }
+  }
+
+  void _onUpdate() {
+    final ctrl = _ctrl;
+    if (ctrl == null || _done) return;
+    final v = ctrl.value;
+    if (v.duration > Duration.zero && v.position >= v.duration) _finish();
+  }
+
+  void _finish() {
+    if (_done) return;
+    _done = true;
+    if (mounted) widget.onDone();
+  }
+
+  @override
+  void dispose() {
+    _ctrl?.removeListener(_onUpdate);
+    _ctrl?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = _ctrl;
+    final ready = ctrl != null && ctrl.value.isInitialized;
+    return GestureDetector(
+      onTap: _finish,
+      child: Container(
+        color: Colors.black,
+        child: ready
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.cover,
+                    child: SizedBox(
+                      width: ctrl.value.size.width,
+                      height: ctrl.value.size.height,
+                      child: VideoPlayer(ctrl),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 36,
+                    right: 28,
+                    child: Text('TAP TO SKIP',
+                        style: _pixel(7,
+                            color: Colors.white.withValues(alpha: 0.3))),
+                  ),
+                ],
+              )
+            : const SizedBox.shrink(),
+      ),
+    );
   }
 }
 

@@ -35,6 +35,7 @@ flutter:
     - assets/logo.png
     - assets/bg_texture.png
     - assets/bg_circuit.png
+    - assets/lose.mp4
     - assets/videos/
 
   fonts:
