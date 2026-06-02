@@ -359,7 +359,6 @@ const Duration kFlashOff = Duration(milliseconds: 180);
 const Duration kInterStepPause = Duration(milliseconds: 220);
 const Duration kBetweenRoundsPause = Duration(milliseconds: 600);
 const Duration kSceneFade = Duration(milliseconds: 500);
-const double kTrapChance  = 0.35;
 const double kBonusChance = 0.30;
 
 /// =============================
@@ -528,7 +527,6 @@ class _GameState {
   int replayTokens = 1;
 
   final List<int> sequence = [];
-  int? trapStepIndex;
   int? bonusTileIndex;
   int inputProgress = 0;
 
@@ -536,7 +534,6 @@ class _GameState {
 
   void resetForNewRound() {
     sequence.clear();
-    trapStepIndex = null;
     bonusTileIndex = null;
     inputProgress = 0;
     // replayTokens intentionally not reset — they accumulate across rounds
@@ -549,7 +546,6 @@ class _GameSceneState extends State<GameScene> {
   Phase _phase = Phase.idle;
 
   int? _flashingIndex;
-  bool _isTrapFlash = false;
   bool _showLoseVideo = false;
   bool _showWinVideo  = false;
 
@@ -586,16 +582,11 @@ class _GameSceneState extends State<GameScene> {
       _phase = Phase.idle;
       _state.resetForNewRound();
       _flashingIndex = null;
-      _isTrapFlash = false;
     });
 
     final seqLen = max(3, _state.rows + 2);
     for (int i = 0; i < seqLen; i++) {
       _state.sequence.add(_rng.nextInt(totalTiles));
-    }
-
-    if (_state.rows >= 2 && _rng.nextDouble() < kTrapChance) {
-      _state.trapStepIndex = _rng.nextInt(_state.sequence.length);
     }
 
     if (_rng.nextDouble() < kBonusChance) {
@@ -612,19 +603,10 @@ class _GameSceneState extends State<GameScene> {
     setState(() => _phase = Phase.revealing);
 
     for (int i = 0; i < _state.sequence.length; i++) {
-      final idx = _state.sequence[i];
-      final isTrap = (i == _state.trapStepIndex);
-
-      setState(() {
-        _flashingIndex = idx;
-        _isTrapFlash = isTrap;
-      });
+      setState(() => _flashingIndex = _state.sequence[i]);
       await Future.delayed(kFlashOn);
 
-      setState(() {
-        _flashingIndex = null;
-        _isTrapFlash = false;
-      });
+      setState(() => _flashingIndex = null);
       await Future.delayed(kFlashOff + kInterStepPause);
     }
   }
@@ -632,16 +614,6 @@ class _GameSceneState extends State<GameScene> {
   void _onTilePressed(int index) {
     if (_phase != Phase.input) return;
     HapticFeedback.selectionClick();
-
-    // Trap only fires when progress has reached that exact step in the sequence,
-    // so the same grid position can appear legitimately at earlier/later steps.
-    final trapStepIdx = _state.trapStepIndex;
-    if (trapStepIdx != null &&
-        _state.inputProgress == trapStepIdx &&
-        index == _state.sequence[trapStepIdx]) {
-      _loseLife(because: 'Trap tile tapped');
-      return;
-    }
 
     // Bonus tile: tapping gives +1 life (also counts as sequence progress below)
     if (_state.bonusTileIndex != null && index == _state.bonusTileIndex) {
@@ -652,26 +624,15 @@ class _GameSceneState extends State<GameScene> {
       HapticFeedback.lightImpact();
     }
 
-    int progressed = 0;
-    for (int i = 0; i < _state.sequence.length; i++) {
-      if (i == _state.trapStepIndex) continue;
-      if (progressed == _state.inputProgress) {
-        final expected = _state.sequence[i];
-        if (index == expected) {
-          setState(() => _state.inputProgress++);
-          _pulseTile(index);
-          final needed =
-              _state.sequence.length - (_state.trapStepIndex == null ? 0 : 1);
-          if (_state.inputProgress == needed) {
-            _handleRoundCleared();
-          }
-        } else {
-          _loseLife(because: 'Wrong tile');
-        }
-        return;
-      } else {
-        progressed++;
+    final expected = _state.sequence[_state.inputProgress];
+    if (index == expected) {
+      setState(() => _state.inputProgress++);
+      _pulseTile(index);
+      if (_state.inputProgress == _state.sequence.length) {
+        _handleRoundCleared();
       }
+    } else {
+      _loseLife(because: 'Wrong tile');
     }
   }
 
@@ -765,7 +726,6 @@ class _GameSceneState extends State<GameScene> {
       _state.replayTokens = 1;
       _state.resetForNewRound();
       _flashingIndex = null;
-      _isTrapFlash = false;
     });
     _startNewRound();
   }
@@ -839,15 +799,11 @@ class _GameSceneState extends State<GameScene> {
                         ),
                         itemCount: totalTiles,
                         itemBuilder: (context, index) {
-                          final isFlashing = _flashingIndex == index;
-                          final isTrapFlashNow = isFlashing && _isTrapFlash;
-
                           return _TileButton(
                             index: index,
                             size: tileSize,
                             disabled: _phase != Phase.input,
-                            flashing: isFlashing,
-                            trapFlash: isTrapFlashNow,
+                            flashing: _flashingIndex == index,
                             bonusTile: _state.bonusTileIndex == index,
                             onPressed: () => _onTilePressed(index),
                           );
@@ -1118,12 +1074,11 @@ class _HeaderBar extends StatelessWidget {
   }
 }
 
-class _TileButton extends StatefulWidget {
+class _TileButton extends StatelessWidget {
   final int index;
   final double size;
   final bool disabled;
   final bool flashing;
-  final bool trapFlash;
   final bool bonusTile;
   final VoidCallback onPressed;
 
@@ -1132,122 +1087,73 @@ class _TileButton extends StatefulWidget {
     required this.size,
     required this.disabled,
     required this.flashing,
-    required this.trapFlash,
     required this.bonusTile,
     required this.onPressed,
   });
 
   @override
-  State<_TileButton> createState() => _TileButtonState();
-}
-
-class _TileButtonState extends State<_TileButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _redFade;
-
-  @override
-  void initState() {
-    super.initState();
-    _redFade = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 240),
-    );
-  }
-
-  @override
-  void didUpdateWidget(_TileButton old) {
-    super.didUpdateWidget(old);
-    if (widget.trapFlash && !old.trapFlash) {
-      _redFade.forward(from: 0.0);
-    } else if (!widget.trapFlash && old.trapFlash) {
-      _redFade.reset();
-    }
-  }
-
-  @override
-  void dispose() {
-    _redFade.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final glyph = widget.bonusTile
-        ? '♥'
-        : widget.trapFlash
-            ? '☠'
-            : _kGlyphs[widget.index % _kGlyphs.length];
+    final glyph = bonusTile ? '♥' : _kGlyphs[index % _kGlyphs.length];
+
+    Color bgColor;
+    Color borderColor;
+    Color glowColor;
+    Color glyphColor;
+
+    if (bonusTile && !flashing) {
+      bgColor     = const Color(0xFF061A08);
+      borderColor = Colors.greenAccent.withValues(alpha: 0.7);
+      glowColor   = Colors.greenAccent.withValues(alpha: 0.25);
+      glyphColor  = Colors.greenAccent;
+    } else if (flashing) {
+      bgColor     = Colors.cyan;
+      borderColor = Colors.cyan.withValues(alpha: 0.85);
+      glowColor   = Colors.cyan.withValues(alpha: 0.6);
+      glyphColor  = Colors.white;
+    } else {
+      bgColor     = const Color(0xFF121416);
+      borderColor = cs.primary.withValues(alpha: 0.25);
+      glowColor   = Colors.transparent;
+      glyphColor  = Colors.cyan.withValues(alpha: 0.5);
+    }
 
     return SizedBox(
-      width: widget.size,
-      height: widget.size,
+      width: size,
+      height: size,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: widget.disabled ? null : widget.onPressed,
-          child: AnimatedBuilder(
-            animation: _redFade,
-            builder: (context, _) {
-              final t = _redFade.value;
-
-              Color bgColor;
-              Color borderColor;
-              Color glowColor;
-              Color glyphColor;
-
-              if (widget.bonusTile && !widget.flashing) {
-                bgColor    = const Color(0xFF061A08);
-                borderColor = Colors.greenAccent.withValues(alpha: 0.7);
-                glowColor  = Colors.greenAccent.withValues(alpha: 0.25);
-                glyphColor = Colors.greenAccent;
-              } else if (widget.flashing) {
-                // Normal tiles: cyan. Trap tiles: orange → primary.
-                final activeColor = widget.trapFlash
-                    ? Color.lerp(Colors.orange, cs.primary, t)!
-                    : Colors.cyan;
-                bgColor    = activeColor;
-                borderColor = activeColor.withValues(alpha: 0.85);
-                glowColor  = activeColor.withValues(alpha: 0.6);
-                glyphColor = Colors.white;
-              } else {
-                bgColor    = const Color(0xFF121416);
-                borderColor = cs.primary.withValues(alpha: 0.25);
-                glowColor  = Colors.transparent;
-                glyphColor = Colors.cyan.withValues(alpha: 0.5);
-              }
-
-              return Container(
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: borderColor,
-                    width: (widget.flashing || widget.bonusTile) ? 2 : 1,
+          onTap: disabled ? null : onPressed,
+          child: Container(
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: borderColor,
+                width: (flashing || bonusTile) ? 2 : 1,
+              ),
+              boxShadow: [
+                if (flashing || bonusTile)
+                  BoxShadow(
+                    color: glowColor,
+                    blurRadius: 14,
+                    spreadRadius: 2,
                   ),
-                  boxShadow: [
-                    if (widget.flashing || widget.bonusTile)
-                      BoxShadow(
-                        color: glowColor,
-                        blurRadius: 14,
-                        spreadRadius: 2,
-                      ),
-                  ],
+              ],
+            ),
+            child: Center(
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 160),
+                style: TextStyle(
+                  fontSize: size * 0.34,
+                  fontWeight: FontWeight.bold,
+                  color: glyphColor,
                 ),
-                child: Center(
-                  child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 160),
-                    style: TextStyle(
-                      fontSize: widget.size * 0.34,
-                      fontWeight: FontWeight.bold,
-                      color: glyphColor,
-                    ),
-                    child: Text(glyph),
-                  ),
-                ),
-              );
-            },
+                child: Text(glyph),
+              ),
+            ),
           ),
         ),
       ),
