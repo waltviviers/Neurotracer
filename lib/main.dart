@@ -509,7 +509,7 @@ class GameScene extends StatefulWidget {
   State<GameScene> createState() => _GameSceneState();
 }
 
-enum Phase { idle, revealing, input, roundEnd, gameOver }
+enum Phase { idle, revealing, input, roundEnd, gameOver, win }
 
 class _GameState {
   int lives = kStartLives;
@@ -542,6 +542,7 @@ class _GameSceneState extends State<GameScene> {
   int? _flashingIndex;
   bool _isTrapFlash = false;
   bool _showLoseVideo = false;
+  bool _showWinVideo  = false;
 
   int _highScore = 0;
   SharedPreferences? _prefs;
@@ -720,6 +721,15 @@ class _GameSceneState extends State<GameScene> {
 
     await Future.delayed(kBetweenRoundsPause);
 
+    // Win condition — all 27 rounds cleared
+    if (_state.roundsCleared == 27) {
+      setState(() {
+        _phase = Phase.win;
+        _showWinVideo = true;
+      });
+      return;
+    }
+
     if (_state.roundsCleared % 3 == 0 && _state.rows < kMaxRows) {
       setState(() => _state.rows += 1);
 
@@ -854,6 +864,11 @@ class _GameSceneState extends State<GameScene> {
             _LoseVideoOverlay(
               onDone: () => setState(() => _showLoseVideo = false),
             ),
+          if (_showWinVideo)
+            _GameVideoOverlay(
+              assetPath: 'assets/win.mp4',
+              onDone: () => setState(() => _showWinVideo = false),
+            ),
         ],
       ),
     );
@@ -874,17 +889,23 @@ class _GameSceneState extends State<GameScene> {
 }
 
 /// =============================
-/// LOSE VIDEO OVERLAY
+/// GAME VIDEO OVERLAY (lose / win)
 /// =============================
 
-class _LoseVideoOverlay extends StatefulWidget {
-  final VoidCallback onDone;
-  const _LoseVideoOverlay({required this.onDone});
-  @override
-  State<_LoseVideoOverlay> createState() => _LoseVideoOverlayState();
+class _LoseVideoOverlay extends _GameVideoOverlay {
+  const _LoseVideoOverlay({required super.onDone})
+      : super(assetPath: 'assets/lose.mp4');
 }
 
-class _LoseVideoOverlayState extends State<_LoseVideoOverlay> {
+class _GameVideoOverlay extends StatefulWidget {
+  final String assetPath;
+  final VoidCallback onDone;
+  const _GameVideoOverlay({required this.assetPath, required this.onDone});
+  @override
+  State<_GameVideoOverlay> createState() => _GameVideoOverlayState();
+}
+
+class _GameVideoOverlayState extends State<_GameVideoOverlay> {
   VideoPlayerController? _ctrl;
   bool _done = false;
 
@@ -896,7 +917,7 @@ class _LoseVideoOverlayState extends State<_LoseVideoOverlay> {
 
   Future<void> _initVideo() async {
     try {
-      final ctrl = VideoPlayerController.asset('assets/lose.mp4');
+      final ctrl = VideoPlayerController.asset(widget.assetPath);
       await ctrl.initialize();
       if (!mounted) { ctrl.dispose(); return; }
       setState(() => _ctrl = ctrl);
@@ -1240,8 +1261,8 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOver = phase == Phase.gameOver;
-    final canContinue = isOver && replayTokens >= 13;
+    final isOver = phase == Phase.gameOver || phase == Phase.win;
+    final canContinue = phase == Phase.gameOver && replayTokens >= 13;
     final canReplay = !isOver && replayTokens > 0;
 
     if (isOver) {
