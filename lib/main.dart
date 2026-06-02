@@ -633,11 +633,12 @@ class _GameSceneState extends State<GameScene> {
     if (_phase != Phase.input) return;
     HapticFeedback.selectionClick();
 
-    final trapIndex = _state.trapStepIndex == null
-        ? null
-        : _state.sequence[_state.trapStepIndex!];
-
-    if (trapIndex != null && index == trapIndex) {
+    // Trap only fires when progress has reached that exact step in the sequence,
+    // so the same grid position can appear legitimately at earlier/later steps.
+    final trapStepIdx = _state.trapStepIndex;
+    if (trapStepIdx != null &&
+        _state.inputProgress == trapStepIdx &&
+        index == _state.sequence[trapStepIdx]) {
       _loseLife(because: 'Trap tile tapped');
       return;
     }
