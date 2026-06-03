@@ -5,6 +5,26 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:audioplayers/audioplayers.dart';
+
+// ---------------------------------------------------------------------------
+// Sound effects
+// ---------------------------------------------------------------------------
+class _Sfx {
+  static final _pool = <String, AudioPlayer>{};
+
+  static Future<void> play(String asset) async {
+    _pool[asset]?.dispose();
+    final p = AudioPlayer();
+    _pool[asset] = p;
+    await p.play(AssetSource(asset));
+  }
+
+  static void tap()     => play('sounds/tap_correct.wav');
+  static void wrong()   => play('sounds/tap_wrong.wav');
+  static void clear()   => play('sounds/round_clear.wav');
+  static void bonus()   => play('sounds/bonus_tap.wav');
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -551,6 +571,7 @@ class _GameSceneState extends State<GameScene> {
 
   int _highScore = 0;
   SharedPreferences? _prefs;
+  bool _showTutorial = false;
 
   @override
   void initState() {
@@ -565,7 +586,13 @@ class _GameSceneState extends State<GameScene> {
     setState(() {
       _prefs = prefs;
       _highScore = prefs.getInt('highScore') ?? 0;
+      _showTutorial = !(prefs.getBool('tutorialSeen') ?? false);
     });
+  }
+
+  void _dismissTutorial() {
+    _prefs?.setBool('tutorialSeen', true);
+    setState(() => _showTutorial = false);
   }
 
   void _updateHighScore() {
@@ -615,8 +642,9 @@ class _GameSceneState extends State<GameScene> {
     if (_phase != Phase.input) return;
     HapticFeedback.selectionClick();
 
-    // Bonus tile: tapping gives +1 life (also counts as sequence progress below)
+    // Bonus tile: tapping gives +1 life
     if (_state.bonusTileIndex != null && index == _state.bonusTileIndex) {
+      _Sfx.bonus();
       setState(() {
         _state.lives += 1;
         _state.bonusTileIndex = null;
@@ -626,12 +654,14 @@ class _GameSceneState extends State<GameScene> {
 
     final expected = _state.sequence[_state.inputProgress];
     if (index == expected) {
+      _Sfx.tap();
       setState(() => _state.inputProgress++);
       _pulseTile(index);
       if (_state.inputProgress == _state.sequence.length) {
         _handleRoundCleared();
       }
     } else {
+      _Sfx.wrong();
       _loseLife(because: 'Wrong tile');
     }
   }
@@ -677,16 +707,13 @@ class _GameSceneState extends State<GameScene> {
   }
 
   Future<void> _handleRoundCleared() async {
+    _Sfx.clear();
     setState(() {
       _phase = Phase.roundEnd;
       _state.roundsCleared += 1;
       _state.score += _state.roundsCleared == 27 ? 37038 : 37037;
       _state.replayTokens += 1;
-      // Bonus tile not tapped — reward a replay token instead
-      if (_state.bonusTileIndex != null) {
-        _state.replayTokens += 1;
-        _state.bonusTileIndex = null;
-      }
+      _state.bonusTileIndex = null;
     });
     _updateHighScore();
 
@@ -836,6 +863,8 @@ class _GameSceneState extends State<GameScene> {
               assetPath: 'assets/win.mp4',
               onDone: () => setState(() => _showWinVideo = false),
             ),
+          if (_showTutorial)
+            _TutorialOverlay(onDismiss: _dismissTutorial),
         ],
       ),
     );
@@ -1262,6 +1291,121 @@ class _BottomBar extends StatelessWidget {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Tutorial overlay — shown once on first launch
+// ---------------------------------------------------------------------------
+class _TutorialOverlay extends StatefulWidget {
+  final VoidCallback onDismiss;
+  const _TutorialOverlay({required this.onDismiss});
+
+  @override
+  State<_TutorialOverlay> createState() => _TutorialOverlayState();
+}
+
+class _TutorialOverlayState extends State<_TutorialOverlay> {
+  int _page = 0;
+
+  static const _pages = [
+    _TutPage(
+      title: 'MEMORIZE',
+      body: 'Watch the tiles light up\nin order. Remember\nthe sequence.',
+      icon: Icons.visibility,
+    ),
+    _TutPage(
+      title: 'REPLAY IT',
+      body: 'Tap the tiles back\nin the exact same order\nbefore time runs out.',
+      icon: Icons.touch_app,
+    ),
+    _TutPage(
+      title: 'BONUS TILE',
+      body: 'Spot the orange tile\nwith the yellow heart.\nTap it to gain a life.',
+      icon: Icons.favorite,
+      iconColor: Colors.orange,
+    ),
+    _TutPage(
+      title: 'REPLAY TOKENS',
+      body: 'Earn a token each round.\nWatch the sequence again\nor save 13 to continue.',
+      icon: Icons.bolt,
+      iconColor: Colors.amber,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final page = _pages[_page];
+    final isLast = _page == _pages.length - 1;
+
+    return Container(
+      color: Colors.black.withValues(alpha: 0.92),
+      child: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(page.icon, color: page.iconColor, size: 48),
+            const SizedBox(height: 24),
+            Text(page.title, style: _pixel(14, color: Colors.cyan)),
+            const SizedBox(height: 20),
+            Text(
+              page.body,
+              textAlign: TextAlign.center,
+              style: _pixel(8, color: Colors.white.withValues(alpha: 0.85)),
+            ),
+            const SizedBox(height: 40),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_pages.length, (i) => Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: i == _page ? 18 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: i == _page ? Colors.cyan : Colors.white24,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              )),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: 200,
+              child: ElevatedButton(
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  if (isLast) {
+                    widget.onDismiss();
+                  } else {
+                    setState(() => _page++);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.cyan.withValues(alpha: 0.15),
+                  side: const BorderSide(color: Colors.cyan),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(
+                  isLast ? "LET'S GO" : 'NEXT',
+                  style: _pixel(10, color: Colors.cyan),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TutPage {
+  final String title;
+  final String body;
+  final IconData icon;
+  final Color iconColor;
+  const _TutPage({
+    required this.title,
+    required this.body,
+    required this.icon,
+    this.iconColor = Colors.cyan,
+  });
 }
 
 class _CreatorTag extends StatelessWidget {
