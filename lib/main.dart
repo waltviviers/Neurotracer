@@ -577,11 +577,20 @@ class _GameSceneState extends State<GameScene> {
   bool _muted = false;
   bool _showGameOverUi = false;
 
+  final _pressedTiles = <int>{};
+  Timer? _easterEggTimer;
+
   @override
   void initState() {
     super.initState();
     _loadHighScore();
     _startNewRound(initial: true);
+  }
+
+  @override
+  void dispose() {
+    _easterEggTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadHighScore() async {
@@ -605,6 +614,31 @@ class _GameSceneState extends State<GameScene> {
   void _dismissTutorial() {
     _prefs?.setBool('tutorialSeen', true);
     setState(() => _showTutorial = false);
+  }
+
+  void _onTilePressStart(int index) {
+    _pressedTiles.add(index);
+    if (_state.roundsCleared == 0 &&
+        _pressedTiles.contains(0) &&
+        _pressedTiles.contains(totalTiles - 1) &&
+        _easterEggTimer == null) {
+      _easterEggTimer = Timer(const Duration(seconds: 5), _triggerEasterEgg);
+    }
+  }
+
+  void _onTilePressEnd(int index) {
+    _pressedTiles.remove(index);
+    _easterEggTimer?.cancel();
+    _easterEggTimer = null;
+  }
+
+  void _triggerEasterEgg() {
+    _pressedTiles.clear();
+    _easterEggTimer = null;
+    setState(() {
+      _phase = Phase.win;
+      _showWinVideo = true;
+    });
   }
 
   void _updateHighScore() {
@@ -767,6 +801,9 @@ class _GameSceneState extends State<GameScene> {
       _flashingIndex = null;
       _showGameOverUi = false;
     });
+    _pressedTiles.clear();
+    _easterEggTimer?.cancel();
+    _easterEggTimer = null;
     _startNewRound();
   }
 
@@ -850,6 +887,8 @@ class _GameSceneState extends State<GameScene> {
                             flashing: _flashingIndex == index,
                             bonusTile: _state.bonusTileIndex == index,
                             onPressed: () => _onTilePressed(index),
+                            onPressStart: () => _onTilePressStart(index),
+                            onPressEnd: () => _onTilePressEnd(index),
                           );
                         },
                       ),
@@ -1177,6 +1216,8 @@ class _TileButton extends StatelessWidget {
   final bool flashing;
   final bool bonusTile;
   final VoidCallback onPressed;
+  final VoidCallback? onPressStart;
+  final VoidCallback? onPressEnd;
 
   const _TileButton({
     required this.index,
@@ -1185,6 +1226,8 @@ class _TileButton extends StatelessWidget {
     required this.flashing,
     required this.bonusTile,
     required this.onPressed,
+    this.onPressStart,
+    this.onPressEnd,
   });
 
   @override
@@ -1214,7 +1257,11 @@ class _TileButton extends StatelessWidget {
       glyphColor  = Colors.cyan.withValues(alpha: 0.5);
     }
 
-    return SizedBox(
+    return Listener(
+      onPointerDown: (_) => onPressStart?.call(),
+      onPointerUp: (_) => onPressEnd?.call(),
+      onPointerCancel: (_) => onPressEnd?.call(),
+      child: SizedBox(
       width: size,
       height: size,
       child: Material(
@@ -1261,7 +1308,8 @@ class _TileButton extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
