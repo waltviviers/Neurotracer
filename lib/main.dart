@@ -6,14 +6,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:share_plus/share_plus.dart';
 
 // ---------------------------------------------------------------------------
 // Sound effects
 // ---------------------------------------------------------------------------
 class _Sfx {
+  static bool muted = false;
   static final _pool = <String, AudioPlayer>{};
 
   static Future<void> play(String asset) async {
+    if (muted) return;
     _pool[asset]?.dispose();
     final p = AudioPlayer();
     _pool[asset] = p;
@@ -572,6 +575,8 @@ class _GameSceneState extends State<GameScene> {
   int _highScore = 0;
   SharedPreferences? _prefs;
   bool _showTutorial = false;
+  bool _muted = false;
+  bool _showGameOverUi = false;
 
   @override
   void initState() {
@@ -587,7 +592,15 @@ class _GameSceneState extends State<GameScene> {
       _prefs = prefs;
       _highScore = prefs.getInt('highScore') ?? 0;
       _showTutorial = !(prefs.getBool('tutorialSeen') ?? false);
+      _muted = prefs.getBool('muted') ?? false;
+      _Sfx.muted = _muted;
     });
+  }
+
+  void _toggleMute() {
+    setState(() => _muted = !_muted);
+    _Sfx.muted = _muted;
+    _prefs?.setBool('muted', _muted);
   }
 
   void _dismissTutorial() {
@@ -640,20 +653,20 @@ class _GameSceneState extends State<GameScene> {
 
   void _onTilePressed(int index) {
     if (_phase != Phase.input) return;
-    HapticFeedback.selectionClick();
 
     // Bonus tile: tapping gives +1 life
     if (_state.bonusTileIndex != null && index == _state.bonusTileIndex) {
       _Sfx.bonus();
+      HapticFeedback.mediumImpact();
       setState(() {
         _state.lives += 1;
         _state.bonusTileIndex = null;
       });
-      HapticFeedback.lightImpact();
     }
 
     final expected = _state.sequence[_state.inputProgress];
     if (index == expected) {
+      HapticFeedback.selectionClick();
       _Sfx.tap();
       setState(() => _state.inputProgress++);
       _pulseTile(index);
@@ -683,7 +696,7 @@ class _GameSceneState extends State<GameScene> {
     if (_state.lives <= 0) {
       setState(() {
         _phase = Phase.gameOver;
-        if (_state.replayTokens < 13) _showLoseVideo = true;
+        _showLoseVideo = true;
       });
       _updateHighScore();
       return;
@@ -753,6 +766,7 @@ class _GameSceneState extends State<GameScene> {
       _state.replayTokens = 1;
       _state.resetForNewRound();
       _flashingIndex = null;
+      _showGameOverUi = false;
     });
     _startNewRound();
   }
@@ -768,9 +782,10 @@ class _GameSceneState extends State<GameScene> {
   void _continueGame() {
     setState(() {
       _state.lives = kStartLives;
-      _state.replayTokens = 1;
+      _state.replayTokens -= 13;
       _state.inputProgress = 0;
       _phase = Phase.idle;
+      _showGameOverUi = false;
     });
     _revealSequence().then((_) {
       if (mounted) setState(() => _phase = Phase.input);
@@ -798,6 +813,8 @@ class _GameSceneState extends State<GameScene> {
               roundsCleared: _state.roundsCleared,
               phase: _phase,
               highScore: _highScore,
+              muted: _muted,
+              onMuteToggle: _toggleMute,
             ),
             const SizedBox(height: 8),
             Expanded(
@@ -845,9 +862,9 @@ class _GameSceneState extends State<GameScene> {
             _BottomBar(
               onRestart: _restartGame,
               onReplaySequence: _replaySequence,
-              onContinue: _continueGame,
               phase: _phase,
               replayTokens: _state.replayTokens,
+              score: _state.score,
             ),
             const SizedBox(height: 4),
             const _CreatorTag(),
@@ -856,7 +873,16 @@ class _GameSceneState extends State<GameScene> {
           ),
           if (_showLoseVideo)
             _LoseVideoOverlay(
-              onDone: () => setState(() => _showLoseVideo = false),
+              onDone: () => setState(() {
+                _showLoseVideo = false;
+                _showGameOverUi = true;
+              }),
+            ),
+          if (_showGameOverUi)
+            _GameOverPanel(
+              replayTokens: _state.replayTokens,
+              onContinue: _continueGame,
+              onQuit: _restartGame,
             ),
           if (_showWinVideo)
             _GameVideoOverlay(
@@ -1029,6 +1055,8 @@ class _HeaderBar extends StatelessWidget {
   final int roundsCleared;
   final Phase phase;
   final int highScore;
+  final bool muted;
+  final VoidCallback onMuteToggle;
 
   const _HeaderBar({
     required this.lives,
@@ -1037,6 +1065,8 @@ class _HeaderBar extends StatelessWidget {
     required this.roundsCleared,
     required this.phase,
     required this.highScore,
+    required this.muted,
+    required this.onMuteToggle,
   });
 
   @override
@@ -1048,8 +1078,9 @@ class _HeaderBar extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Pixel hearts
+          // Pixel hearts + mute toggle
           Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: List.generate(
@@ -1064,6 +1095,15 @@ class _HeaderBar extends StatelessWidget {
                       ),
                     ),
                   ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: onMuteToggle,
+                child: Icon(
+                  muted ? Icons.volume_off : Icons.volume_up,
+                  color: Colors.cyan.withValues(alpha: 0.55),
+                  size: 18,
                 ),
               ),
             ],
@@ -1088,7 +1128,11 @@ class _HeaderBar extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text('MOST SOULS SET FREE:', style: _pixel(6, color: cs.primary)),
                 const SizedBox(height: 2),
-                Text('$score', style: _pixel(11, color: Colors.white)),
+                TweenAnimationBuilder<int>(
+                  tween: IntTween(begin: 0, end: score),
+                  duration: const Duration(milliseconds: 450),
+                  builder: (_, v, __) => Text('$v', style: _pixel(11, color: Colors.white)),
+                ),
                 if (highScore > 0) ...[
                   const SizedBox(height: 3),
                   Text('BEST: $highScore',
@@ -1201,68 +1245,62 @@ class _TileButton extends StatelessWidget {
 class _BottomBar extends StatelessWidget {
   final VoidCallback onRestart;
   final VoidCallback onReplaySequence;
-  final VoidCallback onContinue;
   final Phase phase;
   final int replayTokens;
+  final int score;
 
   const _BottomBar({
     required this.onRestart,
     required this.onReplaySequence,
-    required this.onContinue,
     required this.phase,
     required this.replayTokens,
+    required this.score,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isOver = phase == Phase.gameOver || phase == Phase.win;
-    final canContinue = phase == Phase.gameOver && replayTokens >= 13;
-    final canReplay = !isOver && replayTokens > 0;
+    final isWin = phase == Phase.win;
+    final canReplay = phase != Phase.gameOver && phase != Phase.win && replayTokens > 0;
 
-    if (isOver) {
+    if (isWin) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (canContinue) ...[
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.bolt),
-                  onPressed: () {
-                    HapticFeedback.heavyImpact();
-                    onContinue();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber.withValues(alpha: 0.15),
-                    side: const BorderSide(color: Colors.amber),
-                  ),
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text('CONTINUE  [-13 TOKENS]', style: _pixel(8, color: Colors.amber)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.refresh),
                 onPressed: onRestart,
-                label: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(phase == Phase.win ? 'PLAY AGAIN' : 'RESTART',
-                      style: _pixel(9)),
+                label: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text('PLAY AGAIN'),
                 ),
               ),
             ),
-            if (phase == Phase.win) ...[
-              const SizedBox(height: 10),
-              Text('MORE CONTENT COMING SOON',
-                  style: _pixel(7, color: Colors.amber)),
-            ],
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.share),
+                onPressed: () {
+                  SharePlus.instance.share(ShareParams(
+                    text: 'I freed $score souls in Neurotracer! Can you beat me? 🤖⚡',
+                  ));
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber.withValues(alpha: 0.12),
+                  side: const BorderSide(color: Colors.amber),
+                ),
+                label: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text('SHARE SCORE', style: _pixel(9, color: Colors.amber)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text('MORE CONTENT COMING SOON', style: _pixel(7, color: Colors.amber)),
           ],
         ),
       );
@@ -1287,6 +1325,102 @@ class _BottomBar extends StatelessWidget {
               style: _pixel(9),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Game over panel — shown after lose video finishes
+// ---------------------------------------------------------------------------
+class _GameOverPanel extends StatefulWidget {
+  final int replayTokens;
+  final VoidCallback onContinue;
+  final VoidCallback onQuit;
+
+  const _GameOverPanel({
+    required this.replayTokens,
+    required this.onContinue,
+    required this.onQuit,
+  });
+
+  @override
+  State<_GameOverPanel> createState() => _GameOverPanelState();
+}
+
+class _GameOverPanelState extends State<_GameOverPanel> {
+  bool _showError = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.88),
+      child: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('GAME OVER', style: _pixel(18, color: Colors.cyan)),
+            const SizedBox(height: 12),
+            Text(
+              '${widget.replayTokens} / 13 TOKENS',
+              style: _pixel(9, color: Colors.amber),
+            ),
+            const SizedBox(height: 48),
+            if (_showError) ...[
+              Text(
+                '13 REPLAY TOKENS\nREQUIRED',
+                textAlign: TextAlign.center,
+                style: _pixel(10, color: Colors.redAccent),
+              ),
+            ] else ...[
+              _panelButton(
+                label: 'CONTINUE',
+                color: Colors.amber,
+                onTap: () async {
+                  HapticFeedback.heavyImpact();
+                  if (widget.replayTokens >= 13) {
+                    widget.onContinue();
+                  } else {
+                    setState(() => _showError = true);
+                    await Future.delayed(const Duration(milliseconds: 1800));
+                    if (mounted) widget.onQuit();
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              _panelButton(
+                label: 'QUIT',
+                color: Colors.cyan,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  widget.onQuit();
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _panelButton({
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: color.withValues(alpha: 0.14),
+            side: BorderSide(color: color),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+          child: Text(label, style: _pixel(11, color: color)),
         ),
       ),
     );

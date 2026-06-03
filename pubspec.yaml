@@ -16,6 +16,7 @@ dependencies:
   video_player: ^2.9.2
   url_launcher: ^6.3.0
   audioplayers: ^6.1.0
+  share_plus: ^10.0.0
 
 dev_dependencies:
   flutter_test:
