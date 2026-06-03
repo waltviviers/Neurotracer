@@ -814,6 +814,7 @@ class _GameSceneState extends State<GameScene> {
               highScore: _highScore,
               muted: _muted,
               onMuteToggle: _toggleMute,
+              onShowTutorial: () => setState(() => _showTutorial = true),
             ),
             const SizedBox(height: 8),
             Expanded(
@@ -858,6 +859,14 @@ class _GameSceneState extends State<GameScene> {
               ),
             ),
             const SizedBox(height: 10),
+            if (_phase == Phase.input)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '${_state.inputProgress} / ${_state.sequence.length}',
+                  style: _pixel(10, color: Colors.cyan.withValues(alpha: 0.6)),
+                ),
+              ),
             _BottomBar(
               onRestart: _restartGame,
               onReplaySequence: _replaySequence,
@@ -1056,6 +1065,7 @@ class _HeaderBar extends StatelessWidget {
   final int highScore;
   final bool muted;
   final VoidCallback onMuteToggle;
+  final VoidCallback onShowTutorial;
 
   const _HeaderBar({
     required this.lives,
@@ -1066,6 +1076,7 @@ class _HeaderBar extends StatelessWidget {
     required this.highScore,
     required this.muted,
     required this.onMuteToggle,
+    required this.onShowTutorial,
   });
 
   @override
@@ -1097,13 +1108,26 @@ class _HeaderBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              GestureDetector(
-                onTap: onMuteToggle,
-                child: Icon(
-                  muted ? Icons.volume_off : Icons.volume_up,
-                  color: Colors.cyan.withValues(alpha: 0.55),
-                  size: 18,
-                ),
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: onMuteToggle,
+                    child: Icon(
+                      muted ? Icons.volume_off : Icons.volume_up,
+                      color: Colors.cyan.withValues(alpha: 0.55),
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: onShowTutorial,
+                    child: Icon(
+                      Icons.help_outline,
+                      color: Colors.cyan.withValues(alpha: 0.55),
+                      size: 18,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
