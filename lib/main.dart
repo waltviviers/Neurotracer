@@ -1285,9 +1285,9 @@ class _BottomBar extends StatelessWidget {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.share),
                 onPressed: () {
-                  SharePlus.instance.share(ShareParams(
-                    text: 'I freed $score souls in Neurotracer! Can you beat me? 🤖⚡',
-                  ));
+                  Share.share(
+                    'I freed $score souls in Neurotracer! Can you beat me? 🤖⚡',
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.amber.withValues(alpha: 0.12),
