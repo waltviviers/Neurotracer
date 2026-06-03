@@ -1094,7 +1094,7 @@ class _TileButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final glyph = bonusTile ? '♥' : _kGlyphs[index % _kGlyphs.length];
+    final glyph = bonusTile ? '' : _kGlyphs[index % _kGlyphs.length];
 
     Color bgColor;
     Color borderColor;
@@ -1102,10 +1102,10 @@ class _TileButton extends StatelessWidget {
     Color glyphColor;
 
     if (bonusTile && !flashing) {
-      bgColor     = const Color(0xFF061A08);
-      borderColor = Colors.greenAccent.withValues(alpha: 0.7);
-      glowColor   = Colors.greenAccent.withValues(alpha: 0.25);
-      glyphColor  = Colors.greenAccent;
+      bgColor     = const Color(0xFF1A0A00);
+      borderColor = Colors.orange.withValues(alpha: 0.7);
+      glowColor   = Colors.orange.withValues(alpha: 0.25);
+      glyphColor  = Colors.orange;
     } else if (flashing) {
       bgColor     = Colors.cyan;
       borderColor = Colors.cyan.withValues(alpha: 0.85);
@@ -1144,15 +1144,23 @@ class _TileButton extends StatelessWidget {
               ],
             ),
             child: Center(
-              child: AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 160),
-                style: TextStyle(
-                  fontSize: size * 0.34,
-                  fontWeight: FontWeight.bold,
-                  color: glyphColor,
-                ),
-                child: Text(glyph),
-              ),
+              child: bonusTile && !flashing
+                  ? SizedBox(
+                      width: size * 0.42,
+                      height: size * 0.36,
+                      child: const CustomPaint(
+                        painter: _PixelHeartPainter(color: Colors.yellow),
+                      ),
+                    )
+                  : AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 160),
+                      style: TextStyle(
+                        fontSize: size * 0.34,
+                        fontWeight: FontWeight.bold,
+                        color: glyphColor,
+                      ),
+                      child: Text(glyph),
+                    ),
             ),
           ),
         ),
