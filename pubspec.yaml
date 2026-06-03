@@ -11,14 +11,24 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Cupertino icons for iOS-style icons (optional but useful)
   cupertino_icons: ^1.0.8
+  shared_preferences: ^2.3.0
+  video_player: ^2.9.2
+  url_launcher: ^6.3.0
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^3.0.2
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon.png"
+  min_sdk_android: 21
 
 flutter:
   uses-material-design: true
@@ -27,3 +37,12 @@ flutter:
     - assets/logo.png
     - assets/bg_texture.png
     - assets/bg_circuit.png
+    - assets/lose.mp4
+    - assets/win.mp4
+    - assets/videos/
+    - assets/sounds/
+
+  fonts:
+    - family: PressStart2P
+      fonts:
+        - asset: assets/fonts/PressStart2P.ttf

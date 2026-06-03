@@ -8,7 +8,7 @@ on:
     branches: [ "main" ]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
@@ -27,7 +27,7 @@ jobs:
       - name: Setup Flutter (stable)
         uses: subosito/flutter-action@v2
         with:
-          channel: stable        # don't set flutter-version alongside channel
+          channel: stable
           cache: true
 
       - name: Flutter pub get
@@ -52,3 +52,15 @@ jobs:
         with:
           name: NeuroTrace-debug-${{ github.sha }}
           path: build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Publish to GitHub Releases
+        if: success() && github.event_name != 'pull_request'
+        run: |
+          gh release delete latest-debug --yes 2>/dev/null || true
+          gh release create latest-debug \
+            --title "NeuroTrace — latest debug build" \
+            --notes "Automatically published from branch \`${{ github.ref_name }}\` — install this APK directly on your Android device." \
+            --prerelease \
+            build/app/outputs/flutter-apk/app-debug.apk#NeuroTrace-debug.apk
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
