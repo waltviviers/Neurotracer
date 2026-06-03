@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:share_plus/share_plus.dart';
 
 // ---------------------------------------------------------------------------
 // Sound effects
@@ -1283,11 +1282,20 @@ class _BottomBar extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                icon: const Icon(Icons.share),
-                onPressed: () {
-                  Share.share(
-                    'I freed $score souls in Neurotracer! Can you beat me? 🤖⚡',
-                  );
+                icon: const Icon(Icons.copy),
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(
+                    text: 'I freed $score souls in Neurotracer! Can you beat me? 🤖⚡',
+                  ));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Score copied to clipboard!', style: _pixel(7)),
+                        duration: const Duration(seconds: 2),
+                        backgroundColor: const Color(0xFF1A1C1E),
+                      ),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.amber.withValues(alpha: 0.12),
@@ -1295,7 +1303,7 @@ class _BottomBar extends StatelessWidget {
                 ),
                 label: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text('SHARE SCORE', style: _pixel(9, color: Colors.amber)),
+                  child: Text('COPY SCORE', style: _pixel(9, color: Colors.amber)),
                 ),
               ),
             ),
