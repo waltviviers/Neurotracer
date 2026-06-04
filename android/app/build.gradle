@@ -12,7 +12,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.waltviviers.neurotracer"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -26,8 +26,8 @@ android {
 
     defaultConfig {
         applicationId = "com.waltviviers.neurotracer"
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 21
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

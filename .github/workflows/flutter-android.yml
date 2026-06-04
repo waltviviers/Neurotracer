@@ -1,4 +1,4 @@
-name: Build Neurotracer APK (Release)
+name: Build Neurotracer (Release)
 
 on:
   workflow_dispatch:
@@ -53,14 +53,24 @@ jobs:
           storeFile=../../neurotracer-release.jks
           EOF
 
-      - name: Build APK (release)
+      - name: Build AAB (release — Play Store)
+        run: flutter build appbundle --release
+
+      - name: Build APK (release — sideload)
         run: flutter build apk --release
+
+      - name: Upload AAB artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Neurotracer-aab-${{ github.sha }}
+          path: build/app/outputs/bundle/release/app-release.aab
 
       - name: Upload APK artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Neurotracer-release-${{ github.sha }}
+          name: Neurotracer-apk-${{ github.sha }}
           path: build/app/outputs/flutter-apk/app-release.apk
 
       - name: Publish to GitHub Releases
@@ -69,8 +79,9 @@ jobs:
           gh release delete latest-release --yes 2>/dev/null || true
           gh release create latest-release \
             --title "Neurotracer — latest release build" \
-            --notes "Automatically published from \`${{ github.ref_name }}\` — install this APK directly on your Android device." \
+            --notes "Automatically published from \`${{ github.ref_name }}\`. AAB is for Play Store upload; APK can be sideloaded directly on Android." \
             --prerelease \
+            build/app/outputs/bundle/release/app-release.aab#Neurotracer.aab \
             build/app/outputs/flutter-apk/app-release.apk#Neurotracer.apk
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
