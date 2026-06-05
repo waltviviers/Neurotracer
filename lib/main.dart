@@ -413,7 +413,7 @@ const _kDiffEasy = _DifficultyConfig(
   flashOff: Duration(milliseconds: 200),
   interStepPause: Duration(milliseconds: 320),
   seqLenBase: 2,
-  seqLenExtra: 1,
+  seqLenExtra: 0,
   rowsEvery: 4,
   bonusChance: 0.45,
 );
