@@ -43,6 +43,16 @@ jobs:
             echo "Android scaffolding already present."
           fi
 
+      - name: Build debug APK (for testing — no keystore needed)
+        run: flutter build apk --debug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Neurotracer-debug-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
+
       - name: Decode keystore
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -59,16 +69,6 @@ jobs:
           else
             echo "KEYSTORE_BASE64 not set — release build will be unsigned."
           fi
-
-      - name: Build debug APK (for testing)
-        run: flutter build apk --debug
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Neurotracer-debug-${{ github.sha }}
-          path: build/app/outputs/flutter-apk/app-debug.apk
-          retention-days: 7
 
       - name: Build AAB (release — Play Store)
         run: flutter build appbundle --release
