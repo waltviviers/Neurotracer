@@ -11,9 +11,9 @@ permissions:
   contents: write
 
 jobs:
-  build-android:
+  # ── Debug build — always runs, no signing needed ──────────────────────────
+  build-debug:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,13 +37,10 @@ jobs:
         shell: bash
         run: |
           if [ ! -f android/app/src/main/AndroidManifest.xml ]; then
-            echo "Android scaffolding missing — creating it..."
             flutter create . --platforms=android
-          else
-            echo "Android scaffolding already present."
           fi
 
-      - name: Build debug APK (for testing — no keystore needed)
+      - name: Build debug APK
         run: flutter build apk --debug
 
       - name: Upload debug APK
@@ -52,6 +49,35 @@ jobs:
           name: Neurotracer-debug-${{ github.sha }}
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 7
+
+  # ── Release build — requires keystore secrets ─────────────────────────────
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Ensure Android scaffolding exists
+        shell: bash
+        run: |
+          if [ ! -f android/app/src/main/AndroidManifest.xml ]; then
+            flutter create . --platforms=android
+          fi
 
       - name: Decode keystore
         env:
@@ -67,31 +93,30 @@ jobs:
           EOF
             echo "Release keystore configured."
           else
-            echo "KEYSTORE_BASE64 not set — release build will be unsigned."
+            echo "KEYSTORE_BASE64 not set — skipping release build."
+            exit 1
           fi
 
-      - name: Build AAB (release — Play Store)
+      - name: Build AAB (Play Store)
         run: flutter build appbundle --release
 
-      - name: Build APK (release — sideload)
+      - name: Build APK (sideload)
         run: flutter build apk --release
 
       - name: Upload AAB artifact
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Neurotracer-aab-${{ github.sha }}
           path: build/app/outputs/bundle/release/app-release.aab
 
       - name: Upload APK artifact
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Neurotracer-apk-${{ github.sha }}
           path: build/app/outputs/flutter-apk/app-release.apk
 
       - name: Publish to GitHub Releases
-        if: success() && github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request'
         run: |
           gh release delete latest-release --yes 2>/dev/null || true
           gh release create latest-release \
