@@ -44,14 +44,21 @@ jobs:
           fi
 
       - name: Decode keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > neurotracer-release.jks
-          cat <<EOF > android/key.properties
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 --decode > neurotracer-release.jks
+            cat > android/key.properties <<EOF
           storePassword=${{ secrets.STORE_PASSWORD }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
           storeFile=../../neurotracer-release.jks
           EOF
+            echo "Release keystore configured."
+          else
+            echo "KEYSTORE_BASE64 not set — build will be debug-signed (not suitable for Play Store upload)."
+          fi
 
       - name: Build AAB (release — Play Store)
         run: flutter build appbundle --release
