@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,46 +30,8 @@ class _Sfx {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  FlutterError.onError = (details) {
-    runApp(_ErrorApp(details.exception.toString(), details.stack.toString()));
-  };
-
-  PlatformDispatcher.instance.onError = (error, stack) {
-    runApp(_ErrorApp(error.toString(), stack.toString()));
-    return true;
-  };
-
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const NeuroTraceApp());
-}
-
-class _ErrorApp extends StatelessWidget {
-  const _ErrorApp(this.error, this.stack);
-  final String error;
-  final String stack;
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        backgroundColor: Colors.black,
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('CRASH', style: TextStyle(color: Colors.red, fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text(error, style: const TextStyle(color: Colors.orange, fontSize: 12)),
-              const SizedBox(height: 16),
-              Text(stack, style: const TextStyle(color: Colors.white54, fontSize: 10)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class NeuroTraceApp extends StatelessWidget {
@@ -412,74 +373,15 @@ class _ScanlinePainter extends CustomPainter {
 /// CONFIG
 /// =============================
 const Color kLogoOffBlack = Color(0xFF0B0B0B);
+const int kStartLives = 3;
 const int kCols = 4;
 const int kMaxRows = 7;
+const Duration kFlashOn = Duration(milliseconds: 420);
+const Duration kFlashOff = Duration(milliseconds: 180);
+const Duration kInterStepPause = Duration(milliseconds: 220);
 const Duration kBetweenRoundsPause = Duration(milliseconds: 600);
 const Duration kSceneFade = Duration(milliseconds: 500);
-
-enum Difficulty { easy, normal, hard }
-
-class _DifficultyConfig {
-  final Difficulty difficulty;
-  final int startLives;
-  final Duration flashOn;
-  final Duration flashOff;
-  final Duration interStepPause;
-  final int seqLenBase;
-  final int seqLenExtra;
-  final int rowsEvery;
-  final double bonusChance;
-
-  const _DifficultyConfig({
-    required this.difficulty,
-    required this.startLives,
-    required this.flashOn,
-    required this.flashOff,
-    required this.interStepPause,
-    required this.seqLenBase,
-    required this.seqLenExtra,
-    required this.rowsEvery,
-    required this.bonusChance,
-  });
-
-  String get label => difficulty.name.toUpperCase();
-}
-
-const _kDiffEasy = _DifficultyConfig(
-  difficulty: Difficulty.easy,
-  startLives: 5,
-  flashOn: Duration(milliseconds: 600),
-  flashOff: Duration(milliseconds: 200),
-  interStepPause: Duration(milliseconds: 320),
-  seqLenBase: 2,
-  seqLenExtra: 0,
-  rowsEvery: 4,
-  bonusChance: 0.45,
-);
-
-const _kDiffNormal = _DifficultyConfig(
-  difficulty: Difficulty.normal,
-  startLives: 3,
-  flashOn: Duration(milliseconds: 420),
-  flashOff: Duration(milliseconds: 180),
-  interStepPause: Duration(milliseconds: 220),
-  seqLenBase: 3,
-  seqLenExtra: 2,
-  rowsEvery: 3,
-  bonusChance: 0.30,
-);
-
-const _kDiffHard = _DifficultyConfig(
-  difficulty: Difficulty.hard,
-  startLives: 2,
-  flashOn: Duration(milliseconds: 270),
-  flashOff: Duration(milliseconds: 120),
-  interStepPause: Duration(milliseconds: 90),
-  seqLenBase: 4,
-  seqLenExtra: 3,
-  rowsEvery: 2,
-  bonusChance: 0.15,
-);
+const double kBonusChance = 0.30;
 
 /// =============================
 /// LOGO SCENE (Glitch → Fade Into Game)
@@ -640,7 +542,7 @@ class GameScene extends StatefulWidget {
 enum Phase { idle, revealing, input, roundEnd, gameOver, win }
 
 class _GameState {
-  int lives = 3;
+  int lives = kStartLives;
   int score = 0;
   int rows = 1;
   int roundsCleared = 0;
@@ -674,7 +576,6 @@ class _GameSceneState extends State<GameScene> {
   bool _showTutorial = false;
   bool _muted = false;
   bool _showGameOverUi = false;
-  _DifficultyConfig? _config;
 
   final _pressedTiles = <int>{};
   Timer? _easterEggTimer;
@@ -683,7 +584,7 @@ class _GameSceneState extends State<GameScene> {
   void initState() {
     super.initState();
     _loadHighScore();
-    // Game starts only after the player picks a difficulty.
+    _startNewRound(initial: true);
   }
 
   @override
@@ -713,14 +614,6 @@ class _GameSceneState extends State<GameScene> {
   void _dismissTutorial() {
     _prefs?.setBool('tutorialSeen', true);
     setState(() => _showTutorial = false);
-  }
-
-  void _onDifficultySelected(_DifficultyConfig config) {
-    setState(() {
-      _config = config;
-      _state.lives = config.startLives;
-    });
-    _startNewRound(initial: true);
   }
 
   void _onTilePressStart(int index) {
@@ -764,13 +657,12 @@ class _GameSceneState extends State<GameScene> {
       _flashingIndex = null;
     });
 
-    final cfg = _config!;
-    final seqLen = max(cfg.seqLenBase, _state.rows + cfg.seqLenExtra);
+    final seqLen = max(3, _state.rows + 2);
     for (int i = 0; i < seqLen; i++) {
       _state.sequence.add(_rng.nextInt(totalTiles));
     }
 
-    if (_rng.nextDouble() < cfg.bonusChance) {
+    if (_rng.nextDouble() < kBonusChance) {
       _state.bonusTileIndex = _rng.nextInt(totalTiles);
     }
 
@@ -785,10 +677,10 @@ class _GameSceneState extends State<GameScene> {
 
     for (int i = 0; i < _state.sequence.length; i++) {
       setState(() => _flashingIndex = _state.sequence[i]);
-      await Future.delayed(_config!.flashOn);
+      await Future.delayed(kFlashOn);
 
       setState(() => _flashingIndex = null);
-      await Future.delayed(_config!.flashOff + _config!.interStepPause);
+      await Future.delayed(kFlashOff + kInterStepPause);
     }
   }
 
@@ -882,7 +774,7 @@ class _GameSceneState extends State<GameScene> {
       return;
     }
 
-    if (_state.roundsCleared % _config!.rowsEvery == 0 && _state.rows < kMaxRows) {
+    if (_state.roundsCleared % 3 == 0 && _state.rows < kMaxRows) {
       setState(() => _state.rows += 1);
 
       if (_state.rows >= 2 && !_state.gaveSecondRowLife) {
@@ -899,7 +791,7 @@ class _GameSceneState extends State<GameScene> {
   void _restartGame() {
     setState(() {
       _phase = Phase.idle;
-      _state.lives = 3;
+      _state.lives = kStartLives;
       _state.score = 0;
       _state.rows = 1;
       _state.roundsCleared = 0;
@@ -908,12 +800,11 @@ class _GameSceneState extends State<GameScene> {
       _state.resetForNewRound();
       _flashingIndex = null;
       _showGameOverUi = false;
-      _config = null; // show difficulty picker again
     });
     _pressedTiles.clear();
     _easterEggTimer?.cancel();
     _easterEggTimer = null;
-    // _startNewRound called after difficulty is re-selected
+    _startNewRound();
   }
 
   void _replaySequence() {
@@ -926,7 +817,7 @@ class _GameSceneState extends State<GameScene> {
 
   void _continueGame() {
     setState(() {
-      _state.lives = _config!.startLives;
+      _state.lives = kStartLives;
       _state.replayTokens -= 13;
       _state.inputProgress = 0;
       _phase = Phase.idle;
@@ -961,7 +852,6 @@ class _GameSceneState extends State<GameScene> {
               muted: _muted,
               onMuteToggle: _toggleMute,
               onShowTutorial: () => setState(() => _showTutorial = true),
-              difficulty: _config?.difficulty,
             ),
             const SizedBox(height: 8),
             Expanded(
@@ -1046,9 +936,7 @@ class _GameSceneState extends State<GameScene> {
               assetPath: 'assets/win.mp4',
               onDone: () => setState(() => _showWinVideo = false),
             ),
-          if (_config == null)
-            _DifficultySelectOverlay(onSelect: _onDifficultySelected),
-          if (_showTutorial && _config != null)
+          if (_showTutorial)
             _TutorialOverlay(onDismiss: _dismissTutorial),
         ],
       ),
@@ -1171,14 +1059,6 @@ class _GameVideoOverlayState extends State<_GameVideoOverlay> {
 TextStyle _pixel(double size, {Color? color, FontWeight weight = FontWeight.normal}) =>
     TextStyle(fontFamily: 'PressStart2P', fontSize: size, color: color, fontWeight: weight);
 
-Color _diffColor(Difficulty d) {
-  switch (d) {
-    case Difficulty.easy:   return const Color(0xFF00FF88);
-    case Difficulty.normal: return Colors.cyan;
-    case Difficulty.hard:   return Colors.redAccent;
-  }
-}
-
 const _kGlyphs = [
   'Ω', 'Σ', 'Φ', 'Δ', 'Λ', 'Ψ', 'Θ', 'Π',
   '0x', 'FF', '4A', 'C3', 'B7', 'E9', '1F', '8D',
@@ -1225,7 +1105,6 @@ class _HeaderBar extends StatelessWidget {
   final bool muted;
   final VoidCallback onMuteToggle;
   final VoidCallback onShowTutorial;
-  final Difficulty? difficulty;
 
   const _HeaderBar({
     required this.lives,
@@ -1237,7 +1116,6 @@ class _HeaderBar extends StatelessWidget {
     required this.muted,
     required this.onMuteToggle,
     required this.onShowTutorial,
-    this.difficulty,
   });
 
   @override
@@ -1290,13 +1168,6 @@ class _HeaderBar extends StatelessWidget {
                   ),
                 ],
               ),
-              if (difficulty != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  difficulty!.name.toUpperCase(),
-                  style: _pixel(6, color: _diffColor(difficulty!).withValues(alpha: 0.7)),
-                ),
-              ],
             ],
           ),
           const Spacer(),
@@ -1630,94 +1501,6 @@ class _GameOverPanelState extends State<_GameOverPanel> {
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
           child: Text(label, style: _pixel(11, color: color)),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Difficulty select overlay — shown before every game session
-// ---------------------------------------------------------------------------
-class _DifficultySelectOverlay extends StatelessWidget {
-  final void Function(_DifficultyConfig) onSelect;
-  const _DifficultySelectOverlay({required this.onSelect});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black.withValues(alpha: 0.95),
-      child: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('SELECT', style: _pixel(12, color: Colors.cyan)),
-            const SizedBox(height: 8),
-            Text('DIFFICULTY', style: _pixel(12, color: Colors.cyan)),
-            const SizedBox(height: 52),
-            _DiffCard(
-              config: _kDiffEasy,
-              subtitle: '5 lives  ·  slow flashes  ·  more bonuses',
-              onTap: () => onSelect(_kDiffEasy),
-            ),
-            const SizedBox(height: 14),
-            _DiffCard(
-              config: _kDiffNormal,
-              subtitle: '3 lives  ·  standard speed',
-              onTap: () => onSelect(_kDiffNormal),
-            ),
-            const SizedBox(height: 14),
-            _DiffCard(
-              config: _kDiffHard,
-              subtitle: '2 lives  ·  fast flashes  ·  fewer bonuses',
-              onTap: () => onSelect(_kDiffHard),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DiffCard extends StatelessWidget {
-  final _DifficultyConfig config;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _DiffCard({
-    required this.config,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _diffColor(config.difficulty);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () {
-            HapticFeedback.selectionClick();
-            onTap();
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: color.withValues(alpha: 0.10),
-            side: BorderSide(color: color, width: 1.5),
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-          ),
-          child: Column(
-            children: [
-              Text(config.label, style: _pixel(12, color: color)),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: _pixel(6, color: color.withValues(alpha: 0.70)),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
         ),
       ),
     );
