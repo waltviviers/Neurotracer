@@ -373,15 +373,85 @@ class _ScanlinePainter extends CustomPainter {
 /// CONFIG
 /// =============================
 const Color kLogoOffBlack = Color(0xFF0B0B0B);
-const int kStartLives = 3;
 const int kCols = 4;
 const int kMaxRows = 7;
-const Duration kFlashOn = Duration(milliseconds: 420);
-const Duration kFlashOff = Duration(milliseconds: 180);
-const Duration kInterStepPause = Duration(milliseconds: 220);
 const Duration kBetweenRoundsPause = Duration(milliseconds: 600);
 const Duration kSceneFade = Duration(milliseconds: 500);
-const double kBonusChance = 0.30;
+
+/// =============================
+/// DIFFICULTY
+/// =============================
+enum Difficulty { easy, normal, hard }
+
+class _DifficultyConfig {
+  final Difficulty difficulty;
+  final int startLives;
+  final Duration flashOn;
+  final Duration flashOff;
+  final Duration interStepPause;
+  final int seqLenBase;
+  final int seqLenExtra;
+  final int rowsEvery;
+  final double bonusChance;
+
+  const _DifficultyConfig({
+    required this.difficulty,
+    required this.startLives,
+    required this.flashOn,
+    required this.flashOff,
+    required this.interStepPause,
+    required this.seqLenBase,
+    required this.seqLenExtra,
+    required this.rowsEvery,
+    required this.bonusChance,
+  });
+
+  String get label => difficulty.name.toUpperCase();
+}
+
+const _kDiffEasy = _DifficultyConfig(
+  difficulty: Difficulty.easy,
+  startLives: 5,
+  flashOn: Duration(milliseconds: 600),
+  flashOff: Duration(milliseconds: 200),
+  interStepPause: Duration(milliseconds: 320),
+  seqLenBase: 2,
+  seqLenExtra: 0,
+  rowsEvery: 4,
+  bonusChance: 0.45,
+);
+
+const _kDiffNormal = _DifficultyConfig(
+  difficulty: Difficulty.normal,
+  startLives: 3,
+  flashOn: Duration(milliseconds: 420),
+  flashOff: Duration(milliseconds: 180),
+  interStepPause: Duration(milliseconds: 220),
+  seqLenBase: 3,
+  seqLenExtra: 2,
+  rowsEvery: 3,
+  bonusChance: 0.30,
+);
+
+const _kDiffHard = _DifficultyConfig(
+  difficulty: Difficulty.hard,
+  startLives: 2,
+  flashOn: Duration(milliseconds: 270),
+  flashOff: Duration(milliseconds: 120),
+  interStepPause: Duration(milliseconds: 90),
+  seqLenBase: 4,
+  seqLenExtra: 3,
+  rowsEvery: 2,
+  bonusChance: 0.15,
+);
+
+Color _diffColor(Difficulty d) {
+  switch (d) {
+    case Difficulty.easy:   return const Color(0xFF00FF88);
+    case Difficulty.normal: return Colors.cyan;
+    case Difficulty.hard:   return Colors.redAccent;
+  }
+}
 
 /// =============================
 /// LOGO SCENE (Glitch → Fade Into Game)
@@ -567,6 +637,8 @@ class _GameSceneState extends State<GameScene> {
   final _state = _GameState();
   Phase _phase = Phase.idle;
 
+  _DifficultyConfig? _config;
+
   int? _flashingIndex;
   bool _showLoseVideo = false;
   bool _showWinVideo  = false;
@@ -581,6 +653,14 @@ class _GameSceneState extends State<GameScene> {
   void initState() {
     super.initState();
     _loadHighScore();
+    // Game starts after difficulty is selected
+  }
+
+  void _onDifficultySelected(_DifficultyConfig config) {
+    setState(() {
+      _config = config;
+      _state.lives = config.startLives;
+    });
     _startNewRound(initial: true);
   }
 
@@ -623,12 +703,13 @@ class _GameSceneState extends State<GameScene> {
       _flashingIndex = null;
     });
 
-    final seqLen = max(3, _state.rows + 2);
+    final cfg = _config!;
+    final seqLen = max(cfg.seqLenBase, _state.rows + cfg.seqLenExtra);
     for (int i = 0; i < seqLen; i++) {
       _state.sequence.add(_rng.nextInt(totalTiles));
     }
 
-    if (_rng.nextDouble() < kBonusChance) {
+    if (_rng.nextDouble() < cfg.bonusChance) {
       _state.bonusTileIndex = _rng.nextInt(totalTiles);
     }
 
@@ -643,10 +724,10 @@ class _GameSceneState extends State<GameScene> {
 
     for (int i = 0; i < _state.sequence.length; i++) {
       setState(() => _flashingIndex = _state.sequence[i]);
-      await Future.delayed(kFlashOn);
+      await Future.delayed(_config!.flashOn);
 
       setState(() => _flashingIndex = null);
-      await Future.delayed(kFlashOff + kInterStepPause);
+      await Future.delayed(_config!.flashOff + _config!.interStepPause);
     }
   }
 
@@ -740,7 +821,7 @@ class _GameSceneState extends State<GameScene> {
       return;
     }
 
-    if (_state.roundsCleared % 3 == 0 && _state.rows < kMaxRows) {
+    if (_state.roundsCleared % _config!.rowsEvery == 0 && _state.rows < kMaxRows) {
       setState(() => _state.rows += 1);
 
       if (_state.rows >= 2 && !_state.gaveSecondRowLife) {
@@ -756,8 +837,9 @@ class _GameSceneState extends State<GameScene> {
 
   void _restartGame() {
     setState(() {
+      _config = null;
       _phase = Phase.idle;
-      _state.lives = kStartLives;
+      _state.lives = 0;
       _state.score = 0;
       _state.rows = 1;
       _state.roundsCleared = 0;
@@ -766,8 +848,9 @@ class _GameSceneState extends State<GameScene> {
       _state.resetForNewRound();
       _flashingIndex = null;
       _showGameOverUi = false;
+      _showLoseVideo = false;
+      _showWinVideo = false;
     });
-    _startNewRound();
   }
 
   void _replaySequence() {
@@ -897,7 +980,9 @@ class _GameSceneState extends State<GameScene> {
               assetPath: 'assets/win.mp4',
               onDone: () => setState(() => _showWinVideo = false),
             ),
-          if (_showTutorial)
+          if (_config == null)
+            _DifficultySelectOverlay(onSelect: _onDifficultySelected),
+          if (_showTutorial && _config != null)
             _TutorialOverlay(onDismiss: _dismissTutorial),
         ],
       ),
@@ -1572,6 +1657,82 @@ class _TutPage {
     required this.icon,
     this.iconColor = Colors.cyan,
   });
+}
+
+/// =============================
+/// DIFFICULTY SELECT OVERLAY
+/// =============================
+class _DifficultySelectOverlay extends StatelessWidget {
+  final void Function(_DifficultyConfig) onSelect;
+  const _DifficultySelectOverlay({required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.95),
+      child: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('SELECT DIFFICULTY',
+                style: _pixel(13, color: Colors.cyan)),
+            const SizedBox(height: 40),
+            _DiffCard(config: _kDiffEasy,   onSelect: onSelect),
+            const SizedBox(height: 16),
+            _DiffCard(config: _kDiffNormal, onSelect: onSelect),
+            const SizedBox(height: 16),
+            _DiffCard(config: _kDiffHard,   onSelect: onSelect),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DiffCard extends StatelessWidget {
+  final _DifficultyConfig config;
+  final void Function(_DifficultyConfig) onSelect;
+  const _DiffCard({required this.config, required this.onSelect});
+
+  String get _subtitle {
+    switch (config.difficulty) {
+      case Difficulty.easy:   return '${config.startLives} lives · slow flash';
+      case Difficulty.normal: return '${config.startLives} lives · standard';
+      case Difficulty.hard:   return '${config.startLives} lives · fast flash';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _diffColor(config.difficulty);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () {
+            HapticFeedback.selectionClick();
+            onSelect(config);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: color.withValues(alpha: 0.10),
+            side: BorderSide(color: color, width: 1.5),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(config.label, style: _pixel(12, color: color)),
+              const SizedBox(height: 6),
+              Text(_subtitle,
+                  style: _pixel(7, color: Colors.white.withValues(alpha: 0.55))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _CreatorTag extends StatelessWidget {
