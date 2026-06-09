@@ -612,7 +612,7 @@ class GameScene extends StatefulWidget {
 enum Phase { idle, revealing, input, roundEnd, gameOver, win }
 
 class _GameState {
-  int lives = kStartLives;
+  int lives = 0;
   int score = 0;
   int rows = 1;
   int roundsCleared = 0;
@@ -863,7 +863,7 @@ class _GameSceneState extends State<GameScene> {
 
   void _continueGame() {
     setState(() {
-      _state.lives = kStartLives;
+      _state.lives = _config!.startLives;
       _state.replayTokens -= 13;
       _state.inputProgress = 0;
       _phase = Phase.idle;
