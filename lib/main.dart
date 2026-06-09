@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,8 +31,44 @@ class _Sfx {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+
+  FlutterError.onError = (details) {
+    runApp(_ErrorApp(details.exception.toString(), details.stack.toString()));
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    runApp(_ErrorApp(error.toString(), stack.toString()));
+    return true;
+  };
+
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const NeuroTraceApp());
+}
+
+class _ErrorApp extends StatelessWidget {
+  const _ErrorApp(this.error, this.stack);
+  final String error;
+  final String stack;
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        backgroundColor: Colors.black,
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('CRASH', style: TextStyle(color: Colors.red, fontSize: 24)),
+              const SizedBox(height: 8),
+              Text(error, style: const TextStyle(color: Colors.orange, fontSize: 12)),
+              const SizedBox(height: 16),
+              Text(stack, style: const TextStyle(color: Colors.white54, fontSize: 9)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class NeuroTraceApp extends StatelessWidget {
