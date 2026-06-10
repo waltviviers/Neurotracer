@@ -755,19 +755,15 @@ class _GameSceneState extends State<GameScene> {
   }
 
   void _restartGame() {
-    setState(() {
-      _phase = Phase.idle;
-      _state.lives = kStartLives;
-      _state.score = 0;
-      _state.rows = 1;
-      _state.roundsCleared = 0;
-      _state.gaveSecondRowLife = false;
-      _state.replayTokens = 1;
-      _state.resetForNewRound();
-      _flashingIndex = null;
-      _showGameOverUi = false;
-    });
-    _startNewRound();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: kSceneFade,
+        pageBuilder: (_, __, ___) => const CinematicScene(),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+    );
   }
 
   void _replaySequence() {
