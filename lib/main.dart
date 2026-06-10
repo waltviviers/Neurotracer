@@ -831,8 +831,8 @@ class _GameSceneState extends State<GameScene> {
 
                   return Center(
                     child: SizedBox(
-                      width: tileSize * kCols,
-                      height: tileSize * _state.rows,
+                      width: tileSize * kCols + (_state.rows - 1) * 8.0,
+                      height: tileSize * _state.rows + (_state.rows - 1) * 8.0,
                       child: GridView.builder(
                         physics: const NeverScrollableScrollPhysics(),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
