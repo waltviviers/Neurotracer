@@ -740,7 +740,7 @@ class _GameSceneState extends State<GameScene> {
       return;
     }
 
-    if (_state.roundsCleared % 3 == 0 && _state.rows < kMaxRows) {
+    if (_state.roundsCleared % 6 == 0 && _state.rows < kMaxRows) {
       setState(() => _state.rows += 1);
 
       if (_state.rows >= 2 && !_state.gaveSecondRowLife) {
