@@ -455,10 +455,6 @@ class _LogoSceneState extends State<LogoScene>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset('assets/bg_circuit.png',
-              fit: BoxFit.cover,
-              color: Colors.black.withValues(alpha: 0.55),
-              colorBlendMode: BlendMode.darken),
           const Positioned(
             bottom: 0, left: 0, right: 0,
             child: Center(child: _CreatorTag()),
