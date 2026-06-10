@@ -167,7 +167,8 @@ class _VideoIntroSceneState extends State<VideoIntroScene> {
 /// =============================
 
 class CinematicScene extends StatefulWidget {
-  const CinematicScene({super.key});
+  final bool skipLogo;
+  const CinematicScene({super.key, this.skipLogo = false});
   @override
   State<CinematicScene> createState() => _CinematicSceneState();
 }
@@ -234,10 +235,11 @@ class _CinematicSceneState extends State<CinematicScene>
     _charTimer?.cancel();
     _lineTimer?.cancel();
     if (!mounted) return;
+    final next = widget.skipLogo ? const GameScene() : const LogoScene();
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: kSceneFade,
-        pageBuilder: (_, __, ___) => const LogoScene(),
+        pageBuilder: (_, __, ___) => next,
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
       ),
@@ -759,7 +761,7 @@ class _GameSceneState extends State<GameScene> {
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: kSceneFade,
-        pageBuilder: (_, __, ___) => const CinematicScene(),
+        pageBuilder: (_, __, ___) => const CinematicScene(skipLogo: true),
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
       ),
