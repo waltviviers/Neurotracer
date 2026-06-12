@@ -1,4 +1,4 @@
-package com.example.neurotrace
+package com.waltviviers.neurotracer
 
 import io.flutter.embedding.android.FlutterActivity
 
