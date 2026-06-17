@@ -574,6 +574,7 @@ class _GameSceneState extends State<GameScene> {
   bool _showTutorial = false;
   bool _muted = false;
   bool _showGameOverUi = false;
+  bool _highScoreMode = false;
 
   @override
   void initState() {
@@ -729,8 +730,8 @@ class _GameSceneState extends State<GameScene> {
 
     await Future.delayed(kBetweenRoundsPause);
 
-    // Win condition — all 27 rounds cleared
-    if (_state.roundsCleared == 27) {
+    // Win condition — all 27 rounds cleared (skipped in high score mode)
+    if (_state.roundsCleared == 27 && !_highScoreMode) {
       setState(() {
         _phase = Phase.win;
         _showWinVideo = true;
@@ -750,6 +751,12 @@ class _GameSceneState extends State<GameScene> {
     }
 
     await _startNewRound();
+  }
+
+  void _activateHighScoreMode() {
+    if (!mounted) return;
+    setState(() => _highScoreMode = true);
+    _startNewRound();
   }
 
   void _restartGame() {
@@ -856,6 +863,7 @@ class _GameSceneState extends State<GameScene> {
             _BottomBar(
               onRestart: _restartGame,
               onReplaySequence: _replaySequence,
+              onHighScoreMode: _activateHighScoreMode,
               phase: _phase,
               replayTokens: _state.replayTokens,
               score: _state.score,
@@ -1254,6 +1262,7 @@ class _TileButton extends StatelessWidget {
 class _BottomBar extends StatelessWidget {
   final VoidCallback onRestart;
   final VoidCallback onReplaySequence;
+  final VoidCallback onHighScoreMode;
   final Phase phase;
   final int replayTokens;
   final int score;
@@ -1261,6 +1270,7 @@ class _BottomBar extends StatelessWidget {
   const _BottomBar({
     required this.onRestart,
     required this.onReplaySequence,
+    required this.onHighScoreMode,
     required this.phase,
     required this.replayTokens,
     required this.score,
@@ -1292,28 +1302,15 @@ class _BottomBar extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                icon: const Icon(Icons.copy),
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(
-                    text: 'I freed $score souls in Neurotracer! Can you beat me? 🤖⚡',
-                  ));
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Score copied to clipboard!', style: _pixel(7)),
-                        duration: const Duration(seconds: 2),
-                        backgroundColor: const Color(0xFF1A1C1E),
-                      ),
-                    );
-                  }
-                },
+                icon: const Icon(Icons.trending_up),
+                onPressed: onHighScoreMode,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.amber.withValues(alpha: 0.12),
                   side: const BorderSide(color: Colors.amber),
                 ),
                 label: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text('COPY SCORE', style: _pixel(9, color: Colors.amber)),
+                  child: Text('HIGH SCORE MODE', style: _pixel(9, color: Colors.amber)),
                 ),
               ),
             ),
