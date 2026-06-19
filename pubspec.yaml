@@ -2,7 +2,7 @@ name: neurotrace
 description: "NeuroTrace — cyberpunk memory puzzle game"
 publish_to: "none" # since this is not being published to pub.dev
 
-version: 1.1.0+3
+version: 1.1.0+4
 
 environment:
   sdk: ">=3.6.0 <4.0.0"
