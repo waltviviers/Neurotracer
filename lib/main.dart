@@ -579,11 +579,10 @@ class _GameSceneState extends State<GameScene> {
   @override
   void initState() {
     super.initState();
-    _loadHighScore();
-    _startNewRound(initial: true);
+    _loadPrefsAndStart();
   }
 
-  Future<void> _loadHighScore() async {
+  Future<void> _loadPrefsAndStart() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
@@ -593,6 +592,9 @@ class _GameSceneState extends State<GameScene> {
       _muted = prefs.getBool('muted') ?? false;
       _Sfx.muted = _muted;
     });
+    // Only start the first round after the tutorial is dismissed (if shown).
+    // Returning players (tutorialSeen=true) start immediately.
+    if (!_showTutorial) _startNewRound(initial: true);
   }
 
   void _toggleMute() {
@@ -604,6 +606,7 @@ class _GameSceneState extends State<GameScene> {
   void _dismissTutorial() {
     _prefs?.setBool('tutorialSeen', true);
     setState(() => _showTutorial = false);
+    _startNewRound(initial: true);
   }
 
   void _updateHighScore() {
