@@ -1,7 +1,7 @@
-# Neurotrace Play Store Screenshots Guide
+# Neurotracer Play Store Screenshots Guide
 
 ## Overview
-These screenshots showcase the key features and gameplay of Neurotrace. They should be created at **1080x1920px** (9:16 aspect ratio, typical for Play Store).
+These screenshots showcase the key features and gameplay of Neurotracer. They should be created at **1080x1920px** (9:16 aspect ratio, typical for Play Store).
 
 ---
 

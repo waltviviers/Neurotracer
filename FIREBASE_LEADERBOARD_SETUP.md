@@ -1,7 +1,7 @@
 # Firebase Leaderboard Setup Guide
 
 ## Overview
-Neurotrace includes a global leaderboard powered by Firebase Realtime Database, allowing players to submit their high scores and compete worldwide.
+Neurotracer includes a global leaderboard powered by Firebase Realtime Database, allowing players to submit their high scores and compete worldwide.
 
 ---
 
@@ -242,7 +242,7 @@ Firebase free tier includes:
 - **Realtime Database**: 100 simultaneous connections, 1GB storage
 - **Bandwidth**: 1GB/month download
 
-Neurotrace typical usage: <100MB/month storage, <100MB/month bandwidth
+Neurotracer typical usage: <100MB/month storage, <100MB/month bandwidth
 
 No cost unless exceeding free tier limits.
 

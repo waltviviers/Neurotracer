@@ -51,7 +51,7 @@ class NeuroTraceApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'NeuroTrace',
+      title: 'Neurotracer',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -196,7 +196,7 @@ class _CinematicSceneState extends State<CinematicScene>
     (text: 'THE GRID',                    color: _kAmber,  pause: 1000),
     (text: 'YOUR MISSION:',               color: _kAmber,  pause: 400),
     (text: 'SET THEM FREE',               color: _kAmber,  pause: 1200),
-    (text: '> NEUROTRACE v1.0',           color: _kCyan,   pause: 500),
+    (text: '> NEUROTRACER v1.0',          color: _kCyan,   pause: 500),
     (text: '  LOADING...',                color: _kCyan,   pause: 800),
   ];
 
