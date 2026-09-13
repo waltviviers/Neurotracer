@@ -1381,7 +1381,7 @@ class _BottomBar extends StatelessWidget {
                 ),
                 label: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text('RATE OUR APP', style: _pixel(9, color: Colors.cyan)),
+                  child: Text('RATE THE APP', style: _pixel(9, color: Colors.cyan)),
                 ),
               ),
             ),
