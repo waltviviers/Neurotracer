@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -137,5 +138,3 @@ class LeaderboardService {
     return '$adj$noun$num';
   }
 }
-
-import 'dart:math';
