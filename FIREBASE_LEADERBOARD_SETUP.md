@@ -49,13 +49,13 @@ Once database is created:
       ".indexOn": ["score"],
       "$entryId": {
         "playerName": {
-          ".validate": "isString() && newData.val().length > 0 && newData.val().length <= 30"
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
         },
         "score": {
-          ".validate": "isNumber() && newData.val() >= 0 && newData.val() <= 999999"
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999999"
         },
         "timestamp": {
-          ".validate": "isNumber()"
+          ".validate": "newData.isNumber()"
         }
       }
     }
