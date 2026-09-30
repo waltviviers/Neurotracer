@@ -1,8 +1,8 @@
 name: neurotrace
-description: "NeuroTrace — cyberpunk memory puzzle game"
+description: "Neurotracer — Immerse yourself in a neon-soaked cyberpunk world where memory is everything. Tap the glowing tiles in order to free corrupted minds and climb the leaderboard. Test your memory, reflexes, and nerve against increasingly challenging sequences. Perfect for puzzle lovers and retro game enthusiasts."
 publish_to: "none" # since this is not being published to pub.dev
 
-version: 1.1.0+3
+version: 1.1.0+4
 
 environment:
   sdk: ">=3.6.0 <4.0.0"
@@ -16,6 +16,8 @@ dependencies:
   video_player: ^2.9.2
   url_launcher: ^6.3.0
   audioplayers: ^6.1.0
+  firebase_core: ^3.7.0
+  firebase_database: ^11.3.0
 
 dev_dependencies:
   flutter_test:
