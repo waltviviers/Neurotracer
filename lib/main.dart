@@ -921,6 +921,9 @@ class _GameSceneState extends State<GameScene> {
           if (_showGameOverUi)
             _GameOverPanel(
               replayTokens: _state.replayTokens,
+              highScoreMode: _highScoreMode,
+              score: _state.score,
+              highScore: _highScore,
               onContinue: _continueGame,
               onQuit: _restartGame,
             ),
@@ -1422,11 +1425,17 @@ class _BottomBar extends StatelessWidget {
 // ---------------------------------------------------------------------------
 class _GameOverPanel extends StatefulWidget {
   final int replayTokens;
+  final bool highScoreMode;
+  final int score;
+  final int highScore;
   final VoidCallback onContinue;
   final VoidCallback onQuit;
 
   const _GameOverPanel({
     required this.replayTokens,
+    required this.highScoreMode,
+    required this.score,
+    required this.highScore,
     required this.onContinue,
     required this.onQuit,
   });
@@ -1446,7 +1455,23 @@ class _GameOverPanelState extends State<_GameOverPanel> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('GAME OVER', style: _pixel(18, color: Colors.cyan)),
+            Text(
+              widget.highScoreMode ? 'HIGH SCORE RUN OVER' : 'GAME OVER',
+              textAlign: TextAlign.center,
+              style: _pixel(widget.highScoreMode ? 14 : 18, color: Colors.cyan),
+            ),
+            if (widget.highScoreMode) ...[
+              const SizedBox(height: 20),
+              Text('SCORE: ${widget.score}', style: _pixel(12, color: Colors.white)),
+              const SizedBox(height: 10),
+              Text(
+                widget.score >= widget.highScore
+                    ? 'NEW HIGH SCORE — SAVED TO LEADERBOARD'
+                    : 'BEST: ${widget.highScore}',
+                textAlign: TextAlign.center,
+                style: _pixel(8, color: Colors.amber),
+              ),
+            ],
             const SizedBox(height: 12),
             Text(
               '${widget.replayTokens} / 13 TOKENS',
